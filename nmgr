@@ -1,0 +1,405 @@
+#!/usr/bin/env python3
+
+import argparse
+import logging
+import re
+import subprocess
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Callable, Dict, List, Set, Union
+
+logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class Action(Enum):
+    """Defines possible actions to perform"""
+
+    UP = "up"  # bring jobs up
+    DOWN = "down"  # bring jobs down
+    RECONCILE = "reconcile"  # update running jobs to match container image in job spec
+
+
+class TargetType(Enum):
+    """Defines targets on which to perform actions"""
+
+    INFRA = "infra"  # infrastructure jobs
+    SERVICES = "services"  # non-infrastructure jobs
+    ALL = "all"  # both infrastructure and non-infrastructure jobs
+    DB = "db"  # jobs using Postgres cluster
+    NAS = "nas"  # jobs using NAS mount
+    JFS = "jfs"  # jobs using JuiceFS mount
+    CRYPT = "crypt"  # jobs using Rclone 'crypt' mount
+
+
+@dataclass
+class AppConfig:
+    """Holds general configuration data"""
+
+    base_dir: Path  # where job files (.hcl) are stored
+    ignore_dirs: Set[str]  # directories to ignore when discovering job files
+    infra_services: Set[str]  # services names considered as infrastructure jobs
+    target_config: Dict[
+        TargetType, List[Callable[[str], bool]]
+    ]  # mapping of targets to predicates for matching to relevant jobs
+
+    @classmethod
+    def defaults(cls):
+        return cls(
+            base_dir=Path.home() / "cld",
+            ignore_dirs={"_archive", ".github", ".git"},
+            infra_services={"garage", "keydb", "haproxy", "caddy", "patroni"},
+            target_config={
+                TargetType.DB: [lambda c: "15432" in c],
+                TargetType.NAS: [lambda c: "/mnt/nas" in c],
+                TargetType.JFS: [lambda c: "/mnt/jfs" in c],
+                TargetType.CRYPT: [lambda c: "/mnt/crypt" in c],
+            },
+        )
+
+
+@dataclass
+class JobInfo:
+    """Holds metadata for a Nomad job"""
+
+    path: Path  # path to job file (.hcl)
+    name: str  # name of job parsed from job file
+    service_name: str  # name of parent dir, typically corresponding to service name
+    content: str  # text content of job file
+
+    @classmethod
+    def from_path(cls, path: Path):
+        """Constructs a JobInfo object by parsing provided file"""
+        content = path.read_text()
+        return cls(
+            path=path,
+            name=cls._get_job_name(content),
+            service_name=path.parent.name,
+            content=content,
+        )
+
+    @staticmethod
+    def _get_job_name(content: str) -> str:
+        """Extracts job name from .hcl job file using regex"""
+        match = re.search(r'job\s+"([^"]+)"', content)
+        if match:
+            return match.group(1)
+        raise ValueError("Invalid job file or unable to parse job name")
+
+
+class JobManager:
+    """Discovers and filters Nomad jobs"""
+
+    def __init__(self, config: AppConfig):
+        self.config = config
+
+    def discover_jobs(self) -> List[JobInfo]:
+        """Looks through the base dir and collects valid Nomad job files"""
+        jobs = []
+        for service_dir in self.config.base_dir.iterdir():
+            if service_dir.name in self.config.ignore_dirs or not service_dir.is_dir():
+                continue
+
+            for job_file in service_dir.glob("*.hcl"):
+                if job_file.is_file():
+                    try:
+                        jobs.append(JobInfo.from_path(job_file))
+                    except ValueError as e:
+                        logger.warning(f"Skipping invalid job file {job_file}: {e}")
+        return jobs
+
+    def filter_jobs(
+        self, jobs: List[JobInfo], target: Union[TargetType, str]
+    ) -> List[JobInfo]:
+        """Filters a list of jobs based on a specified target (either TargetType or job/service name)"""
+        if isinstance(target, TargetType):
+            return self._filter_by_target_type(jobs, target)
+        return self._filter_by_job_name(jobs, target)
+
+    def _filter_by_target_type(
+        self, jobs: List[JobInfo], target: TargetType
+    ) -> List[JobInfo]:
+        """Helper to filter jobs based on a TargetType"""
+        if target == TargetType.ALL:
+            return jobs
+
+        if target == TargetType.INFRA:
+            return [
+                job for job in jobs if job.service_name in self.config.infra_services
+            ]
+
+        if target == TargetType.SERVICES:
+            return [
+                job
+                for job in jobs
+                if job.service_name not in self.config.infra_services
+            ]
+
+        # For other target types, use content-matching predicates from target_config
+        return [
+            job
+            for job in jobs
+            if any(
+                predicate(job.content)
+                for predicate in self.config.target_config.get(target, [])
+            )
+        ]
+
+    def _filter_by_job_name(self, jobs: List[JobInfo], name: str) -> List[JobInfo]:
+        """Helper to filter jobs by an exact match on job/service name"""
+        return [job for job in jobs if job.name == name or job.service_name == name]
+
+
+class NomadClient:
+    """Wraps interactions with the Nomad CLI"""
+
+    def __init__(self, dry_run: bool = False, detach: bool = False):
+        self.dry_run = dry_run
+        self.detach = detach
+
+    def _run_command(self, cmd: List[str]):
+        """Runs a given command via subprocess"""
+        # if self.dry_run:
+        #     # TODO: this code is probably never reachable
+        #     logger.debug(f"[DRY RUN] Would execute: {' '.join(cmd)}")
+        #     return
+
+        try:
+            result = subprocess.run(
+                cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            logger.debug(f"Command succeeded: {' '.join(cmd)}")
+            return result
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Command failed: {' '.join(cmd)}\nError: {e.stderr}")
+            raise
+
+    def run_job(self, job: JobInfo) -> None:
+        """Starts (or updates) a Nomad job from a specified .hcl file"""
+        cmd = ["nomad", "run", str(job.path)]
+        if self.detach:
+            cmd.append("-detach")
+        self._run_command(cmd)
+        logger.debug(f"Started job: {job.name}")
+
+    def stop_job(self, job: JobInfo) -> None:
+        """Stops (and purges) a Nomad job by name"""
+        cmd = ["nomad", "stop", "-purge", job.name]
+        self._run_command(cmd)
+        logger.debug(f"Stopped job: {job.name}")
+
+    def is_running(self, job: JobInfo) -> bool:
+        """Checks if a given job is currently running"""
+        result = subprocess.run(
+            ["nomad", "job", "status", "-short", job.name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        # Look for a line containing "Status" and see if it sends with "running"
+        status_line = [line for line in result.stdout.splitlines() if "Status" in line]
+        return status_line and status_line[0].split()[-1].lower() == "running"
+
+
+class ActionHandler:
+    """Base class for handling actions"""
+
+    def __init__(self, nomad: NomadClient, config: AppConfig):
+        self.nomad = nomad
+        self.config = config
+
+    def handle(self, jobs: List[JobInfo]):
+        raise NotImplementedError
+
+
+class UpHandler(ActionHandler):
+    """Handles the "up" action, starting (or updating) each job if not running"""
+
+    def handle(self, jobs: List[JobInfo]):
+        for job in jobs:
+            if self.nomad.is_running(job):
+                logger.debug(f"Job {job.name} already running; skipping.")
+                continue
+
+            if self.nomad.dry_run:
+                logger.info(f"[DRY RUN] Would start: {job.name}")
+                continue
+
+            self.nomad.run_job(job)
+
+
+class DownHandler(ActionHandler):
+    """Handles the "down" action": stops (and purges) each job if running"""
+
+    def handle(self, jobs: List[JobInfo]):
+        for job in jobs:
+            if not self.nomad.is_running(job):
+                logger.debug(f"Job {job.name} not running; skipping.")
+                continue
+
+            if self.nomad.dry_run:
+                logger.info(f"[DRY RUN] Would stop: {job.name}")
+                continue
+
+            self.nomad.stop_job(job)
+
+
+class ReconcileHandler(ActionHandler):
+    """Handles the "reconcile" action: updates a running job to match the container image defined in job file"""
+
+    def handle(self, jobs: List[JobInfo]):
+        for job in jobs:
+            # We skip infrastructure services for reconciliation
+            if job.service_name in self.config.infra_services:
+                logger.info(f"Skipping infra job {job.name}")
+                continue
+
+            current_image = self._get_current_image(job)
+            desired_image = self._get_desired_image(job)
+
+            if current_image == desired_image:
+                logger.debug(f"No changes detected for {job.name}")
+                continue
+
+            if not self.nomad.is_running(job):
+                logger.debug(f"Job {job.name} is not running; skipping.")
+                continue
+
+            logger.debug(f"Image changed for {job.name}. Restarting...")
+            self.nomad.run_job(job)
+
+    def _get_current_image(self, job: JobInfo) -> str:
+        """Gets currently deployed container image by inspecting Nomad job"""
+        try:
+            result = subprocess.run(
+                ["nomad", "job", "inspect", "-hcl", job.name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+            return self._extract_images(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error inspecting job {job.name}: {e.stderr}")
+            return ""
+
+    def _get_desired_image(self, job: JobInfo) -> str:
+        """Gets the desired image by parsing .hcl job file"""
+        return self._extract_images(job.content)
+
+    def _extract_images(self, content: str) -> str:
+        """Helper to parse image references from a .hcl job file"""
+        image_pattern = re.compile(r'image\s*=\s*(".*?"|\{[^}]*\})', re.DOTALL)
+        images = image_pattern.findall(content)
+
+        # Filter out matches of 'local.image' since it references a hcl variable
+        filtered = [
+            re.sub(r"\s+", " ", img.strip())
+            for img in images
+            if "local.image" not in img
+        ]
+        return "\n".join(filtered) if filtered else ""
+
+
+class ClusterManager:
+    """
+    Orchestrates the program flow:
+      1. Discover jobs
+      2. Parse and resolve the target
+      3. Filter jobs accordingly
+      4. Instantiate the appropriate handler
+      5. Execute the action handler on the filtered jobs
+    """
+
+    def __init__(self, args):
+        self.args = args
+        self.config = AppConfig.defaults()
+        self.job_manager = JobManager(self.config)
+        self.nomad_client = NomadClient(dry_run=args.dry_run, detach=args.detach)
+
+    def run(self):
+        """Main entry point after parsing CLI arguments"""
+        jobs = self.job_manager.discover_jobs()
+        target = self._parse_target()
+        filtered_jobs = self.job_manager.filter_jobs(jobs, target)
+
+        if not filtered_jobs:
+            logger.warning(f"No jobs found matching target: {target}")
+            return
+
+        handler = self._get_action_handler()
+        handler.handle(filtered_jobs)
+
+    def _parse_target(self) -> Union[TargetType, str]:
+        """Helper to convert the user-supplied target arguments into either a TargetType or a string"""
+        try:
+            return TargetType(self.args.target)
+        except ValueError:
+            return self.args.target
+
+    def _get_action_handler(self) -> ActionHandler:
+        """Helper to instantiate the appropriate handler based on user requested action"""
+        action = Action(self.args.action)
+        handler_map = {
+            Action.UP: UpHandler,
+            Action.DOWN: DownHandler,
+            Action.RECONCILE: ReconcileHandler,
+        }
+        return handler_map[action](self.nomad_client, self.config)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Nomad cluster manager")
+    parser.add_argument(
+        "action",
+        choices=[a.value for a in Action],
+        help="Action to perform",
+    )
+    parser.add_argument(
+        "target",
+        help="Target to operate on. Can be: "
+        f"{', '.join([t.value for t in TargetType])}"
+        ", or a specific job/service name",
+    )
+    parser.add_argument(
+        "--base-dir",
+        default=AppConfig.defaults().base_dir,
+        type=Path,
+        help="Base directory for Nomad jobs",
+    )
+    parser.add_argument(
+        "--ignore-dirs",
+        nargs="*",
+        default=AppConfig.defaults().ignore_dirs,
+        help="Directories to ignore when discovering Nomad jobs",
+    )
+    parser.add_argument(
+        "--infra-services",
+        nargs="*",
+        default=AppConfig.defaults().infra_services,
+        help="Critical infrastructure services to treat more carefully",
+    )
+    parser.add_argument("-n", "--dry-run", action="store_true", help="Dry-run mode")
+    parser.add_argument(
+        "-d", "--detach", action="store_true", help="Start jobs in detached mode"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+
+    args = parser.parse_args()
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+
+    try:
+        ClusterManager(args).run()
+    except Exception as e:
+        logger.error(f"Operation failed: {str(e)}")
+        exit(1)
+
+
+if __name__ == "__main__":
+    main()
