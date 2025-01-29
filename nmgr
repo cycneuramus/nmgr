@@ -203,14 +203,13 @@ class NomadClient:
         )
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 check=True,
                 text=True,
                 cwd=cwd,
             )
             logger.debug(f"Command succeeded: {' '.join(cmd)}")
-            return result
         except subprocess.CalledProcessError as e:
             logger.error(f"Command failed: {' '.join(cmd)}\nError: {e.stderr}")
             raise
@@ -239,7 +238,7 @@ class NomadClient:
             stderr=subprocess.DEVNULL,
             text=True,
         )
-        # Look for a line containing "Status" and see if it sends with "running"
+        # Look for a line containing "Status" and see if it ends with "running"
         status_line = [line for line in result.stdout.splitlines() if "Status" in line]
         if not status_line:
             return False
@@ -337,7 +336,7 @@ class ReconcileHandler(ActionHandler):
         """Parses image references from a .hcl job file"""
         image_pattern = re.compile(r'image\s*=\s*(".*?"|\{[^}]*\})', re.DOTALL)
         images = image_pattern.findall(content)
-        # Filter out matches of 'local.image' since it references a hcl variable
+        # Filter out 'local.image' matches since it references a hcl variable
         filtered = [
             re.sub(r"\s+", " ", img.strip())
             for img in images
@@ -378,8 +377,8 @@ class JobManager:
             logger.warning(f"No jobs found matching target: {target}")
             return
 
-        action = self._get_action_handler()
-        action.handle(filtered_jobs)
+        handler = self._get_action_handler()
+        handler.handle(filtered_jobs)
 
     def _parse_target(self) -> Union[TargetType, str]:
         """Converts the user-supplied target arguments into either TargetType or string"""
@@ -403,12 +402,11 @@ def main():
     parser = argparse.ArgumentParser(description="Nomad job manager")
     parser.add_argument(
         "action",
-        choices=[a.value for a in Action],
-        help="Action to perform",
+        help="Action to perform. Can be one of: " f"{', '.join([a.value for a in Action])}",
     )
     parser.add_argument(
         "target",
-        help="Target to operate on. Can be: "
+        help="Target to operate on. Can be one of: "
         f"{', '.join([t.value for t in TargetType])}"
         ", or a specific job name",
     )
@@ -426,11 +424,11 @@ def main():
         help="Directories to ignore when discovering Nomad jobs",
     )
     parser.add_argument(
-        "--infra-services",
+        "--infra-jobs",
         nargs="*",
         default=Config.defaults().infra_jobs,
         type=str,
-        help="Critical infrastructure services to treat more carefully",
+        help="Critical infrastructure jobs to treat more carefully",
     )
     parser.add_argument("-n", "--dry-run", action="store_true", help="Dry-run mode")
     parser.add_argument(

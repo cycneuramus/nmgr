@@ -45,21 +45,21 @@ The crux here, of course, is that you would most likely have to dive into the so
 ## Usage
 
 ```
-usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infra-services [INFRA_SERVICES ...]] [-n] [-d] [-v] {up,down,reconcile} target
+usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infra-jobs [INFRA_JOBS ...]] [-n] [-d] [-v] action target
 
 Nomad job manager
 
 positional arguments:
-  {up,down,reconcile}   Action to perform
-  target                Target to operate on. Can be: infra, services, all, db, nas, jfs, crypt, or a specific job name
+  action                Action to perform. Can be one of: up, down, reconcile
+  target                Target to operate on. Can be one of: infra, services, all, db, nas, jfs, crypt, or a specific job name
 
 options:
-  -h, --help            Show this help message and exit
+  -h, --help            show this help message and exit
   --base-dir BASE_DIR   Base directory for Nomad jobs
   --ignore-dirs [IGNORE_DIRS ...]
                         Directories to ignore when discovering Nomad jobs
-  --infra-services [INFRA_SERVICES ...]
-                        Critical infrastructure services to treat more carefully
+  --infra-jobs [INFRA_JOBS ...]
+                        Critical infrastructure jobs to treat more carefully
   -n, --dry-run         Dry-run mode
   -d, --detach          Start jobs in detached mode
   -v, --verbose         Verbose output
