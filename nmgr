@@ -67,16 +67,30 @@ class JobInfo:
     name: str  # name of job parsed from job file
     parent_dir: str  # name of parent directory (typically corresponds to job name)
     content: str  # text content of job file
+    directory_content: str  # combined text content of all files in dir
 
     @classmethod
     def from_path(cls, path: Path):
         """Constructs a JobInfo object by parsing provided file"""
         content = path.read_text()
+        directory = path.parent
+
+        dir_content = []
+        for file in directory.iterdir():
+            if file.is_file():
+                try:
+                    dir_content.append(file.read_text())
+                except UnicodeDecodeError:
+                    logger.debug(f"Skipping binary file: {file.name}")
+                except Exception as e:
+                    logger.warning(f"Error reading {file}: {str(e)}")
+
         return cls(
             path=path,
             name=cls._get_job_name(content),
             parent_dir=path.parent.name,
             content=content,
+            directory_content="\n".join(dir_content),
         )
 
     @staticmethod
@@ -130,7 +144,18 @@ class JobFinder:
         if target == TargetType.SERVICES:
             return [job for job in jobs if job.name not in self.config.infra_jobs]
 
-        # For other target types, use content-matching predicates from target_config
+        # DB target predicate might match in non-job files
+        if target == TargetType.DB:
+            return [
+                job
+                for job in jobs
+                if any(
+                    predicate(job.directory_content)
+                    for predicate in self.config.target_config.get(target, [])
+                )
+            ]
+
+        # For other target types, predicates should match in job files only
         return [
             job
             for job in jobs
