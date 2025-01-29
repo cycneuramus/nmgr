@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Union
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class TargetType(Enum):
     INFRA = "infra"  # infrastructure jobs
     SERVICES = "services"  # non-infrastructure jobs
     ALL = "all"  # both infrastructure and non-infrastructure jobs
-    DB = "db"  # jobs using Postgres cluster
+    DB = "db"  # jobs using database
     NAS = "nas"  # jobs using NAS mount
     JFS = "jfs"  # jobs using JuiceFS mount
     CRYPT = "crypt"  # jobs using Rclone 'crypt' mount
@@ -38,8 +38,8 @@ class Config:
     """Holds general configuration data"""
 
     base_dir: Path  # base directory for job files (.hcl)
-    ignore_dirs: Set[str]  # directories to ignore when discovering job files
-    infra_jobs: Set[str]  # job names considered as infrastructure jobs
+    ignore_dirs: List[str]  # directories to ignore when discovering job files
+    infra_jobs: List[str]  # job names considered as infrastructure jobs
     target_config: Dict[
         TargetType, List[Callable[[str], bool]]
     ]  # mapping of targets to expressions for matching relevant jobs
@@ -48,8 +48,8 @@ class Config:
     def defaults(cls):
         return cls(
             base_dir=Path.home() / "cld",
-            ignore_dirs={"_archive", ".github", ".git"},
-            infra_jobs={"garage", "keydb", "haproxy", "caddy", "patroni"},
+            ignore_dirs=["_archive", ".github", ".git"],
+            infra_jobs=["garage", "keydb", "haproxy", "caddy", "patroni"],
             target_config={
                 TargetType.DB: [lambda c: "15432" in c],
                 TargetType.NAS: [lambda c: "/mnt/nas" in c],
@@ -124,25 +124,34 @@ class JobFinder:
         return jobs
 
     def filter_jobs(
-        self, jobs: List[JobInfo], target: Union[TargetType, str]
+        self,
+        jobs: List[JobInfo],
+        target: Union[TargetType, str],
+        action: Optional[Action] = None,
     ) -> List[JobInfo]:
         """Filters a list of jobs based on specified target (either TargetType or job name)"""
         if isinstance(target, TargetType):
-            return self._filter_by_target_type(jobs, target)
+            return self._filter_by_target_type(jobs, target, action)
         return self._filter_by_job_name(jobs, target)
 
     def _filter_by_target_type(
-        self, jobs: List[JobInfo], target: TargetType
+        self, jobs: List[JobInfo], target: TargetType, action: Optional[Action]
     ) -> List[JobInfo]:
         """Filters jobs based on TargetType"""
         if target == TargetType.ALL:
-            return jobs
+            infra_jobs = self._get_infra_jobs(jobs)
+            service_jobs = self._get_service_jobs(jobs)
+            # Make sure infra jobs are handled first or last depending on action
+            if action == Action.UP:
+                return infra_jobs + service_jobs
+            if action == Action.DOWN or action == Action.RECONCILE:
+                return service_jobs + infra_jobs
 
         if target == TargetType.INFRA:
-            return [job for job in jobs if job.name in self.config.infra_jobs]
+            return self._get_infra_jobs(jobs)
 
         if target == TargetType.SERVICES:
-            return [job for job in jobs if job.name not in self.config.infra_jobs]
+            return self._get_service_jobs(jobs)
 
         # DB target predicate might match in non-job files
         if target == TargetType.DB:
@@ -165,6 +174,19 @@ class JobFinder:
             )
         ]
 
+    def _get_infra_jobs(self, jobs: List[JobInfo]) -> List[JobInfo]:
+        """Return infra jobs in the exact order of self.config.infra_jobs"""
+        return [
+            job
+            for infra_job in self.config.infra_jobs
+            for job in jobs
+            if job.name == infra_job
+        ]
+
+    def _get_service_jobs(self, jobs: List[JobInfo]) -> List[JobInfo]:
+        """Get service (non-infrastructure) jobs"""
+        return [job for job in jobs if job.name not in self.config.infra_jobs]
+
     def _filter_by_job_name(self, jobs: List[JobInfo], name: str) -> List[JobInfo]:
         """Filter jobs by an exact match on job"""
         return [job for job in jobs if job.name == name]
@@ -173,7 +195,8 @@ class JobFinder:
 class NomadClient:
     """Wraps interactions with the Nomad CLI"""
 
-    def __init__(self, dry_run: bool = False, detach: bool = False):
+    def __init__(self, config: Config, dry_run: bool = False, detach: bool = False):
+        self.config = config
         self.dry_run = dry_run
         self.detach = detach
 
@@ -199,8 +222,10 @@ class NomadClient:
     def run_job(self, job: JobInfo) -> None:
         """Starts (or updates) a Nomad job from a specified .hcl file"""
         cmd = ["nomad", "run", job.path.name]
-        if self.detach:
+        # Ignore --detach for infra jobs to wait for their health before moving on
+        if self.detach and job.name not in self.config.infra_jobs:
             cmd.append("-detach")
+
         self._run_command(cmd, cwd=str(job.path.parent))
         logger.debug(f"Started job: {job.name}")
 
@@ -220,7 +245,9 @@ class NomadClient:
         )
         # Look for a line containing "Status" and see if it sends with "running"
         status_line = [line for line in result.stdout.splitlines() if "Status" in line]
-        return status_line and status_line[0].split()[-1].lower() == "running"
+        if not status_line:
+            return False
+        return status_line[0].split()[-1].lower() == "running"
 
 
 class ActionHandler:
@@ -336,13 +363,14 @@ class JobManager:
         self.args = args
         self.config = Config.defaults()
         self.job_finder = JobFinder(self.config)
-        self.nomad = NomadClient(dry_run=args.dry_run, detach=args.detach)
+        self.nomad = NomadClient(self.config, dry_run=args.dry_run, detach=args.detach)
 
     def run(self):
         """Main entry point after parsing CLI arguments"""
         jobs = self.job_finder.discover_jobs()
         target = self._parse_target()
-        filtered_jobs = self.job_finder.filter_jobs(jobs, target)
+        action = Action(self.args.action)
+        filtered_jobs = self.job_finder.filter_jobs(jobs, target, action)
 
         if not filtered_jobs:
             logger.warning(f"No jobs found matching target: {target}")
