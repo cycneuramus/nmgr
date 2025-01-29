@@ -153,24 +153,18 @@ class JobFinder:
         if target == TargetType.SERVICES:
             return self._get_service_jobs(jobs)
 
-        # DB target predicate might match in non-job files
-        if target == TargetType.DB:
-            return [
-                job
-                for job in jobs
-                if any(
-                    predicate(job.directory_content)
-                    for predicate in self.config.target_config.get(target, [])
-                )
-            ]
-
-        # For other target types, predicates should match in job files only
+        # For other target types, filter by expression as defined in target_config
         return [
             job
             for job in jobs
             if any(
-                predicate(job.content)
-                for predicate in self.config.target_config.get(target, [])
+                expression(
+                    # DB target expression might match in non-job files
+                    job.directory_content
+                    if target == TargetType.DB
+                    else job.content
+                )
+                for expression in self.config.target_config.get(target, [])
             )
         ]
 

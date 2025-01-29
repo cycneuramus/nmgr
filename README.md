@@ -30,7 +30,7 @@ Consider the following use-cases:
 
     `nmgr reconcile my-specific-job`
 
-+ You're about to upgrade or otherwise change, say, a database job on which, however, a host of other jobs depend. Do you now wade through each and every job specification to remind yourself of which jobs you would need to stop before performing the update? Instead, you could do this:
++ You're about to upgrade or otherwise change, say, a database job on which, however, a host of other jobs depend. Do you now wade through each and every job specification to remind yourself of which jobs you would need to stop before making your change? Instead, you could do this:
 
     `nmgr db down`
 
@@ -40,7 +40,7 @@ Consider the following use-cases:
 
     You could do the same thing for jobs that depend on e.g. a NAS (`nmgr nas {up,down}`), a JuiceFS mount (`nmgr jfs {up,down}`), and so forth.
 
-The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. Make sure to inspect the [`target_config`](https://github.com/cycneuramus/nmgr/blob/95fb63295ddf088c0564c9e27e83d3c3a0effe84/nmgr#L53-L58) dict and the [`_filter_by_target_type`](https://github.com/cycneuramus/nmgr/blob/ca44a5029969dfa9a56eb84f1ffcc1fe826f02fb/nmgr#L137-L175) method for some clues.
+The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`target_config`](https://github.com/cycneuramus/nmgr/blob/95fb63295ddf088c0564c9e27e83d3c3a0effe84/nmgr#L53-L58) dict and the [`_filter_by_target_type`](https://github.com/cycneuramus/nmgr/blob/fafcf4c441e257853302c3c48a400885860db7b3/nmgr#L137-L169) method.
 
 ## Usage
 
