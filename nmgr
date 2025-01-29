@@ -113,6 +113,7 @@ class JobFinder:
         jobs = []
         for job_dir in self.config.base_dir.iterdir():
             if job_dir.name in self.config.ignore_dirs or not job_dir.is_dir():
+                logger.debug(f"Skipping ignored or invalid directory: {job_dir.name}")
                 continue
 
             for job_file in job_dir.glob("*.hcl"):
@@ -355,7 +356,12 @@ class JobManager:
 
     def __init__(self, args):
         self.args = args
-        self.config = Config.defaults()
+        self.config = Config(
+            base_dir=args.base_dir,
+            ignore_dirs=args.ignore_dirs,
+            infra_jobs=args.infra_services,
+            target_config=Config.defaults().target_config,
+        )
         self.job_finder = JobFinder(self.config)
         self.nomad = NomadClient(self.config, dry_run=args.dry_run, detach=args.detach)
 
@@ -414,12 +420,14 @@ def main():
         "--ignore-dirs",
         nargs="*",
         default=Config.defaults().ignore_dirs,
+        type=str,
         help="Directories to ignore when discovering Nomad jobs",
     )
     parser.add_argument(
         "--infra-services",
         nargs="*",
         default=Config.defaults().infra_jobs,
+        type=str,
         help="Critical infrastructure services to treat more carefully",
     )
     parser.add_argument("-n", "--dry-run", action="store_true", help="Dry-run mode")
