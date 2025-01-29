@@ -4,6 +4,7 @@ import argparse
 import logging
 import re
 import subprocess
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -245,15 +246,16 @@ class NomadClient:
         return status_line[0].split()[-1].lower() == "running"
 
 
-class ActionHandler:
-    """Base class for handling actions"""
+class ActionHandler(ABC):
+    """Abstract base class for handling actions"""
 
     def __init__(self, nomad: NomadClient, config: Config):
         self.nomad = nomad
         self.config = config
 
+    @abstractmethod
     def handle(self, jobs: List[JobInfo]):
-        raise NotImplementedError
+        pass
 
 
 class UpHandler(ActionHandler):
