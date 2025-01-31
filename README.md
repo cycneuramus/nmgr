@@ -40,7 +40,7 @@ Consider the following use-cases:
 
     You could do the same thing for jobs that depend on e.g. a NAS (`nmgr nas {up,down}`), a JuiceFS mount (`nmgr jfs {up,down}`), and so forth.
 
-The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`Target`](https://github.com/cycneuramus/nmgr/blob/316207a4b83711c140798f173981dbaf9a73e1f2/nmgr#L213-L234) class.
+The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`Target`](https://github.com/cycneuramus/nmgr/blob/914128b12d69439cff151c35a48392fea2fb9753/nmgr#L216-L235) class.
 
 ## Usage
 
