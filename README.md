@@ -13,13 +13,13 @@ Consider the following use-cases:
 + You're about to perform a server upgrade that requires a restart. Instead of manually coddling every one of those 50+ running jobs first, it sure would be handy to be able to do this:
 
     ```
-    nmgr all down
+    nmgr down all
     sudo apt update && sudo apt upgrade
     sudo reboot now
 
     [...]
 
-    nmgr all up
+    nmgr up all
     ```
 
 + You're using something like [Renovate](https://renovatebot.com) to manage updates to container image versions. Now one fine day, a whole bunch of these comes in as a PR, so you merge, pull locally—and then what? Do you manually hunt down all the jobs needing to be updated and restart them one by one? Well, now you can do this instead:
@@ -32,13 +32,13 @@ Consider the following use-cases:
 
 + You're about to upgrade or otherwise change, say, a database job on which, however, a host of other jobs depend. Do you now wade through each and every job specification to remind yourself which jobs you would need to stop before making your change? Instead, you could do this:
 
-    `nmgr db down`
+    `nmgr down db`
 
     And then, after you have made the change:
 
-    `nmgr db up`
+    `nmgr up db`
 
-    You could do the same thing for jobs that depend on e.g. a NAS (`nmgr nas {up,down}`), a JuiceFS mount (`nmgr jfs {up,down}`), and so forth.
+    You could do the same thing for jobs that depend on e.g. a NAS (`nmgr {up,down nas}`), a JuiceFS mount (`nmgr {up,down} jfs`), and so forth.
 
 The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`Target`](https://github.com/cycneuramus/nmgr/blob/914128b12d69439cff151c35a48392fea2fb9753/nmgr#L216-L235) class.
 
