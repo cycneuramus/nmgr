@@ -2,9 +2,9 @@
 
 `nmgr` is a utility program for managing jobs in a Nomad cluster according to certain specific needs and preferences of mine. The type of jobs it is designed to operate on can be gleaned from my [homelab repository](https://github.com/cycneuramus/homelab).
 
-It started as a set of Bash convenience functions which slowly but surely began to evolve into an [unmaintainable monstrosity](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr). This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
+It started as a set of Bash convenience functions which, in time, slowly but surely began [threatening](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
 
-If it's not clear by now, this program should not be used without understanding what it does and why it does it.
+If it's not clear by now, this program probably should not be used without understanding what it does and why it does it.
 
 ## Rationale
 
@@ -30,7 +30,7 @@ Consider the following use-cases:
 
     `nmgr reconcile my-specific-job`
 
-+ You're about to upgrade or otherwise change, say, a database job on which, however, a host of other jobs depend. Do you now wade through each and every job specification to remind yourself of which jobs you would need to stop before making your change? Instead, you could do this:
++ You're about to upgrade or otherwise change, say, a database job on which, however, a host of other jobs depend. Do you now wade through each and every job specification to remind yourself which jobs you would need to stop before making your change? Instead, you could do this:
 
     `nmgr db down`
 
@@ -40,7 +40,7 @@ Consider the following use-cases:
 
     You could do the same thing for jobs that depend on e.g. a NAS (`nmgr nas {up,down}`), a JuiceFS mount (`nmgr jfs {up,down}`), and so forth.
 
-The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`target_config`](https://github.com/cycneuramus/nmgr/blob/95fb63295ddf088c0564c9e27e83d3c3a0effe84/nmgr#L53-L58) dict and the [`_filter_by_target_type`](https://github.com/cycneuramus/nmgr/blob/fafcf4c441e257853302c3c48a400885860db7b3/nmgr#L137-L169) method.
+The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`Target`](https://github.com/cycneuramus/nmgr/blob/316207a4b83711c140798f173981dbaf9a73e1f2/nmgr#L213-L234) class.
 
 ## Usage
 
@@ -50,17 +50,17 @@ usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infr
 Nomad job manager
 
 positional arguments:
-  action                Action to perform. Can be one of: up, down, reconcile
-  target                Target to operate on. Can be one of: infra, services, all, db, nas, jfs, crypt, or a specific job name
+  action                Action to perform: up, down, reconcile
+  target                Target to operate on: infra, services, all, db, nas, jfs, crypt, or a specific job name
 
 options:
   -h, --help            show this help message and exit
-  --base-dir BASE_DIR   Base directory for Nomad jobs
+  --base-dir BASE_DIR   Base directory for discovering Nomad jobs (default: /home/<user>/cld)
   --ignore-dirs [IGNORE_DIRS ...]
-                        Directories to ignore when discovering Nomad jobs
+                        Directories to ignore when discovering Nomad jobs (default: ['_archive', '.github', '.git'])
   --infra-jobs [INFRA_JOBS ...]
-                        Critical infrastructure jobs to treat more carefully
-  -n, --dry-run         Dry-run mode
-  -d, --detach          Start jobs in detached mode
-  -v, --verbose         Verbose output
+                        Critical infrastructure jobs to handle with care (default: ['garage', 'keydb', 'haproxy', 'caddy', 'patroni'])
+  -n, --dry-run         Dry-run mode (default: False)
+  -d, --detach          Start jobs in detached mode (default: False)
+  -v, --verbose         Verbose output (default: False)
 ```
