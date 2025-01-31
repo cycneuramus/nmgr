@@ -2,9 +2,9 @@
 
 `nmgr` is a utility program for managing jobs in a Nomad cluster according to certain specific needs and preferences of mine. The type of jobs it is designed to operate on can be gleaned from my [homelab repository](https://github.com/cycneuramus/homelab).
 
-It started as a set of Bash convenience functions which, in time, slowly but surely began [threatening](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
+It started as a set of Bash convenience functions which, in time, slowly but surely [threatened](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
 
-If it's not clear by now, this program probably should not be used without understanding what it does and why it does it.
+If it's not clear by now, this program should probably not be used without understanding what it does and why it does it.
 
 ## Rationale
 
