@@ -9,7 +9,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Callable, Dict, List, Type
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,21 +31,42 @@ class NomadJob:
 
 
 class ActionHandler(ABC):
-    """Abstract base class for acting on a collection of Nomad jobs"""
+    """Abstract base class for handling user-requested action on Nomad jobs"""
+
+    _registry: Dict[str, Type[ActionHandler]] = {}
 
     def __init__(self, nomad: NomadClient, config: Config):
         self.nomad = nomad
         self.config = config
 
+    @classmethod
+    def register(
+        cls, action: str
+    ) -> Callable[[Type[ActionHandler]], Type[ActionHandler]]:
+        def decorator(subcls: Type[ActionHandler]) -> Type[ActionHandler]:
+            cls._registry[action] = subcls
+            return subcls
+
+        return decorator
+
+    @classmethod
+    def get(cls, action: str, nomad: NomadClient, config: Config) -> ActionHandler:
+        try:
+            handler_cls = cls._registry[action]
+        except KeyError:
+            raise ValueError(f"Unknown action: {action}")
+        return handler_cls(nomad, config)
+
     @abstractmethod
-    def execute(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]):
         pass
 
 
+@ActionHandler.register("up")
 class UpHandler(ActionHandler):
-    """Handles the "up" action: runs a job if not running or spec has changed"""
+    """Runs a job if not running or spec has changed"""
 
-    def execute(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]):
         for job in jobs:
             if self.nomad.is_running(job):
                 logger.debug(f"Job {job.name} is already running; skipping")
@@ -55,10 +76,11 @@ class UpHandler(ActionHandler):
             self.nomad.run_job(job)
 
 
+@ActionHandler.register("down")
 class DownHandler(ActionHandler):
-    """Handles the "down" action: stops and purges a job if running"""
+    """Stops and purges a job if running"""
 
-    def execute(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]):
         for job in jobs:
             if not self.nomad.is_running(job):
                 logger.debug(f"Job {job.name} is not running; skipping")
@@ -68,10 +90,11 @@ class DownHandler(ActionHandler):
             self.nomad.stop_job(job)
 
 
+@ActionHandler.register("reconcile")
 class ReconcileHandler(ActionHandler):
-    """Handles the "reconcile" action: restarts job if spec contains new image"""
+    """Restarts job if spec contains new image"""
 
-    def execute(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]):
         for job in jobs:
             if not self.nomad.is_running(job):
                 logger.debug(f"Job {job.name} is not running; skipping")
@@ -130,18 +153,39 @@ class ReconcileHandler(ActionHandler):
         return "\n".join(filtered) if filtered else ""
 
 
-class JobFilter(ABC):
-    """Abstract base class for filtering Nomad jobs to act on"""
+class TargetFilter(ABC):
+    """Abstract base class for filtering Nomad jobs by user-requested target"""
+
+    _registry: Dict[str, Type[TargetFilter]] = {}
+
+    @classmethod
+    def register(
+        cls, target: str
+    ) -> Callable[[Type[TargetFilter]], Type[TargetFilter]]:
+        def decorator(subcls: Type[TargetFilter]) -> Type[TargetFilter]:
+            cls._registry[target] = subcls
+            return subcls
+
+        return decorator
+
+    @classmethod
+    def get(cls, target: str) -> TargetFilter:
+        filter_cls = cls._registry.get(target)
+        if filter_cls is not None:
+            return filter_cls()
+        # If user-requested target is not in registry, assume it is a job name
+        return NameFilter(target)
 
     @abstractmethod
-    def filter_jobs(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
+    def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         pass
 
 
-class InfraFilter(JobFilter):
+@TargetFilter.register("infra")
+class InfraFilter(TargetFilter):
     """Returns infrastructure jobs, respecting their order in config.infra_jobs"""
 
-    def filter_jobs(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
+    def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         ordered = []
         for infra_name in config.infra_jobs:
             for job in jobs:
@@ -150,93 +194,75 @@ class InfraFilter(JobFilter):
         return ordered
 
 
-class ServicesFilter(JobFilter):
+@TargetFilter.register("services")
+class ServicesFilter(TargetFilter):
     """Returns service (i.e. non-infrastructure) jobs"""
 
-    def filter_jobs(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
+    def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         return [job for job in jobs if job.name not in config.infra_jobs]
 
 
-class AllFilter(JobFilter):
+@TargetFilter.register("all")
+class AllFilter(TargetFilter):
     """Returns both infra and services jobs, always ordering infra jobs first"""
 
-    def filter_jobs(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
-        infra = InfraFilter().filter_jobs(jobs, config)
-        services = ServicesFilter().filter_jobs(jobs, config)
+    def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
+        infra = InfraFilter().filter(jobs, config)
+        services = ServicesFilter().filter(jobs, config)
         return infra + services
 
 
-class NameFilter(JobFilter):
+class NameFilter(TargetFilter):
     """Returns job matching a single specific name"""
 
     def __init__(self, name: str):
         self.name = name
 
-    def filter_jobs(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
+    def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         return [job for job in jobs if job.name == self.name]
 
 
-class ContentFilter(JobFilter):
+class ContentFilter(TargetFilter):
     """Returns jobs whose spec or config files contain the specified strings"""
 
-    def __init__(self, strings_to_match: List[str], extended_search: bool = False):
-        self.strings_to_match = strings_to_match
-        self.extended_search = extended_search
+    keywords: List[str] = []
+    extended_search: bool = False
 
-    def filter_jobs(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
+    def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         matched = []
         for job in jobs:
-            text = (job.configs + job.spec) if self.extended_search else job.spec
+            text = (job.spec + job.configs) if self.extended_search else job.spec
             if (
-                any(string in text for string in self.strings_to_match)
-                and job.name not in config.infra_jobs  # exclude infra jobs for safety
+                any(keyword in text for keyword in self.keywords)
+                and job.name not in config.infra_jobs
             ):
                 matched.append(job)
         return matched
 
 
-class Action:
-    """Holds the logic for handling user-supplied action"""
-
-    _HANDLERS = {
-        "up": UpHandler,
-        "down": DownHandler,
-        "reconcile": ReconcileHandler,
-    }
-
-    def __init__(self, action: str, nomad: NomadClient, config: Config):
-        if action not in self._HANDLERS:
-            raise ValueError(f"Unknown action: {action}")
-        self.handler = self._HANDLERS[action](nomad, config)
-
-    def execute(self, jobs: List[NomadJob]):
-        self.handler.execute(jobs)
+@TargetFilter.register("db")
+class DBFilter(ContentFilter):
+    keywords = ["15432"]
+    extended_search = True
 
 
-class Target:
-    """Holds the logic for filtering jobs based on user-supplied target"""
+@TargetFilter.register("nas")
+class NASFilter(ContentFilter):
+    keywords = ["/mnt/nas"]
 
-    _FILTERS = {
-        "infra": InfraFilter(),
-        "services": ServicesFilter(),
-        "all": AllFilter(),
-        "db": ContentFilter(["15432"], extended_search=True),
-        "nas": ContentFilter(["/mnt/nas"]),
-        "jfs": ContentFilter(["/mnt/jfs"]),
-        "crypt": ContentFilter(["/mnt/crypt"]),
-    }
 
-    def __init__(self, target_str: str):
-        self.target_str = target_str
+@TargetFilter.register("jfs")
+class JFSFilter(ContentFilter):
+    keywords = ["/mnt/jfs"]
 
-    def get_filter(self) -> JobFilter:
-        if self.target_str in self._FILTERS:
-            return self._FILTERS[self.target_str]
-        return NameFilter(self.target_str)
+
+@TargetFilter.register("crypt")
+class CryptFilter(ContentFilter):
+    keywords = ["/mnt/crypt"]
 
 
 class JobStore:
-    """Finds and ingests Nomad jobs along with surrounding config files"""
+    """Finds and ingests Nomad jobs along with their surrounding config files"""
 
     _CONFIGS_PATTERN = [
         "*.env*",
@@ -266,6 +292,7 @@ class JobStore:
                     logger.warning(f"Failed to load {hcl_file}: {e}")
         return jobs
 
+    # TODO: don't load all jobs in memory at the time of find_jobs call
     def _load_job(self, path: Path) -> NomadJob:
         spec = path.read_text()
         return NomadJob(
@@ -275,6 +302,7 @@ class JobStore:
             configs=self._read_configs(path.parent),
         )
 
+    # TODO: don't load all configs in memory at the time of find_jobs call
     def _read_configs(self, directory: Path) -> str:
         text_chunks = []
         for pattern in self._CONFIGS_PATTERN:
@@ -366,19 +394,19 @@ class JobManager:
             return
 
         try:
-            action = Action(self.args.action, self.nomad, self.config)
+            action = ActionHandler.get(self.args.action, self.nomad, self.config)
         except ValueError as e:
             logger.error(e)
             return
 
-        job_filter = Target(self.args.target).get_filter()
-        filtered_jobs = job_filter.filter_jobs(all_jobs, self.config)
+        target = TargetFilter.get(self.args.target)
+        targeted_jobs = target.filter(all_jobs, self.config)
 
-        if not filtered_jobs:
+        if not targeted_jobs:
             logger.warning(f"No jobs found matching target: {self.args.target}")
             return
 
-        action.execute(filtered_jobs)
+        action.handle(targeted_jobs)
 
 
 def main():
@@ -388,11 +416,11 @@ def main():
     )
     parser.add_argument(
         "action",
-        help=f"Action to perform: {', '.join(Action._HANDLERS.keys())}",
+        help=f"Action to perform: {', '.join(ActionHandler._registry.keys())}",
     )
     parser.add_argument(
         "target",
-        help=f"Target to operate on: {', '.join(Target._FILTERS.keys())}, or a specific job name",
+        help=f"Target to operate on: {', '.join(TargetFilter._registry.keys())}, or a specific job name",
     )
     parser.add_argument(
         "--base-dir",

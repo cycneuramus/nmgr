@@ -30,17 +30,17 @@ Consider the following use-cases:
 
     `nmgr reconcile my-specific-job`
 
-+ You're about to upgrade or otherwise change, say, a database job on which, however, a host of other jobs depend. Do you now wade through each and every job specification to remind yourself which jobs you would need to stop before making your change? Instead, you could do this:
++ You're about to upgrade or otherwise mess with, say, a NAS on which a host of currently running jobs depend. Do you now wade through each and every job specification to remind yourself which jobs you would need to stop before making your changes? Instead, you could do this:
 
-    `nmgr down db`
+    `nmgr down nas`
 
-    And then, after you have made the change:
+    And then, after you're done messing with the NAS:
 
-    `nmgr up db`
+    `nmgr up nas`
 
-    You could do the same thing for jobs that depend on e.g. a NAS (`nmgr {up,down nas}`), a JuiceFS mount (`nmgr {up,down} jfs`), and so forth.
+    You could do the same thing for jobs that depend on e.g. a database job (`nmgr {up,down} db`), a [JuiceFS](https://juicefs.com) mount (`nmgr {up,down} jfs`), and so forth.
 
-The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect the [`Target`](https://github.com/cycneuramus/nmgr/blob/914128b12d69439cff151c35a48392fea2fb9753/nmgr#L216-L235) class.
+The crux here, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for these types of jobs match your environment. A good way to start hunting for clues would be to inspect [`ContentFilter`](https://github.com/cycneuramus/nmgr/blob/50d6c048320388581f2e3b0dcc46237bd04fa289/nmgr#L225-L261) and its subclasses.
 
 ## Usage
 
