@@ -24,10 +24,23 @@ class Config:
 
 @dataclass
 class NomadJob:
-    path: Path
     name: str
-    spec: str
-    configs: str
+    spec_path: Path
+    config_paths: List[Path]
+
+    @property
+    def spec(self) -> str:
+        return self.spec_path.read_text()
+
+    @property
+    def configs(self) -> str:
+        configs = []
+        for path in self.config_paths:
+            try:
+                configs.append(path.read_text())
+            except Exception as e:
+                logger.warning(f"Error reading {path}: {str(e)}")
+        return "\n".join(configs)
 
 
 class ActionHandler(ABC):
@@ -173,7 +186,7 @@ class TargetFilter(ABC):
         filter_cls = cls._registry.get(target)
         if filter_cls is not None:
             return filter_cls()
-        # If user-requested target is not in registry, assume it is a job name
+        # If user-requested target is not in registry, assume it's a job name
         return NameFilter(target)
 
     @abstractmethod
@@ -261,8 +274,8 @@ class CryptFilter(ContentFilter):
     keywords = ["/mnt/crypt"]
 
 
-class JobStore:
-    """Finds and ingests Nomad jobs along with their surrounding config files"""
+class JobRegistry:
+    """Finds and registers Nomad jobs along with their surrounding config files"""
 
     _CONFIGS_PATTERN = [
         "*.env*",
@@ -285,39 +298,32 @@ class JobStore:
                 logger.debug(f"Skipping: {path}")
                 continue
 
-            for hcl_file in path.glob("*.hcl"):
+            for spec_path in path.glob("*.hcl"):
                 try:
-                    jobs.append(self._load_job(hcl_file))
+                    jobs.append(self._register_job(spec_path))
                 except ValueError as e:
-                    logger.warning(f"Failed to load {hcl_file}: {e}")
+                    logger.warning(f"Failed to load {spec_path}: {e}")
         return jobs
 
-    # TODO: don't load all jobs in memory at the time of find_jobs call
-    def _load_job(self, path: Path) -> NomadJob:
-        spec = path.read_text()
+    def _register_job(self, spec_path: Path) -> NomadJob:
         return NomadJob(
-            path=path,
-            name=self._extract_job_name(spec),
-            spec=spec,
-            configs=self._read_configs(path.parent),
+            name=self._extract_job_name(spec_path),
+            spec_path=spec_path,
+            config_paths=self._find_configs(spec_path.parent),
         )
 
-    # TODO: don't load all configs in memory at the time of find_jobs call
-    def _read_configs(self, directory: Path) -> str:
-        text_chunks = []
+    def _find_configs(self, directory: Path) -> List[Path]:
+        configs = []
         for pattern in self._CONFIGS_PATTERN:
             for path in directory.glob(pattern):
                 if path.is_file():
-                    try:
-                        text_chunks.append(path.read_text())
-                    except Exception as e:
-                        logger.warning(f"Error reading {path}: {str(e)}")
-        return "\n".join(text_chunks)
+                    configs.append(path)
+        return configs
 
     @staticmethod
-    def _extract_job_name(spec: str) -> str:
+    def _extract_job_name(spec_path: Path) -> str:
         """Scans for "foo" in lines such as: 'job "foo"'"""
-        match = re.search(r'job\s+"([^"]+)"', spec)
+        match = re.search(r'job\s+"([^"]+)"', spec_path.read_text())
         if not match:
             raise ValueError("Missing job name in spec")
         return match.group(1)
@@ -336,9 +342,9 @@ class NomadClient:
         # Skip detach on infra jobs to let Nomad declare them healthy before proceeding
         if self.detach and job.name not in self.config.infra_jobs:
             cmd.append("-detach")
-        cmd.append(job.path.name)
+        cmd.append(job.name)
 
-        self._execute(cmd, cwd=str(job.path.parent))
+        self._execute(cmd, cwd=str(job.spec_path.parent))
         logger.debug(f"Started job: {job.name}")
 
     def stop_job(self, job: NomadJob) -> None:
@@ -384,11 +390,11 @@ class JobManager:
             ignore_dirs=args.ignore_dirs,
             infra_jobs=args.infra_jobs,
         )
-        self.job_store = JobStore(self.config)
+        self.job_registry = JobRegistry(self.config)
         self.nomad = NomadClient(self.config, dry_run=args.dry_run, detach=args.detach)
 
     def run(self):
-        all_jobs = self.job_store.find_jobs()
+        all_jobs = self.job_registry.find_jobs()
         if not all_jobs:
             logger.warning("No jobs found")
             return
