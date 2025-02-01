@@ -8,6 +8,7 @@ import re
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Callable, Dict, List, Type
 
@@ -28,11 +29,11 @@ class NomadJob:
     spec_path: Path
     config_paths: List[Path]
 
-    @property
+    @cached_property
     def spec(self) -> str:
         return self.spec_path.read_text()
 
-    @property
+    @cached_property
     def configs(self) -> str:
         configs = []
         for path in self.config_paths:
