@@ -278,6 +278,7 @@ class CryptFilter(ContentFilter):
 class JobRegistry:
     """Finds and registers Nomad jobs along with their surrounding config files"""
 
+    # TODO: don't hardcode this here
     _CONFIGS_PATTERN = [
         "*.env*",
         "*.toml*",
@@ -402,17 +403,16 @@ class JobManager:
             logger.warning("No jobs found")
             return
 
+        target = TargetFilter.get(self.args.target)
+        targeted_jobs = target.filter(all_jobs, self.config)
+        if not targeted_jobs:
+            logger.warning(f"No jobs found matching target: {self.args.target}")
+            return
+
         try:
             action = ActionHandler.get(self.args.action, self.nomad, self.config)
         except ValueError as e:
             logger.error(e)
-            return
-
-        target = TargetFilter.get(self.args.target)
-        targeted_jobs = target.filter(all_jobs, self.config)
-
-        if not targeted_jobs:
-            logger.warning(f"No jobs found matching target: {self.args.target}")
             return
 
         action.handle(targeted_jobs)
