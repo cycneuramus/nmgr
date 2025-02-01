@@ -304,10 +304,11 @@ class NomadClient:
         self.detach = detach
 
     def run_job(self, job: NomadJob) -> None:
-        cmd = ["nomad", "run", job.path.name]
+        cmd = ["nomad", "run"]
         # Skip detach on infra jobs to let Nomad declare them healthy before proceeding
         if self.detach and job.name not in self.config.infra_jobs:
             cmd.append("-detach")
+        cmd.append(job.path.name)
 
         self._execute(cmd, cwd=str(job.path.parent))
         logger.debug(f"Started job: {job.name}")
