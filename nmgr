@@ -114,13 +114,13 @@ class ReconcileHandler(ActionHandler):
                 logger.debug(f"Job {job.name} is not running; skipping")
                 continue
 
-            current_image = self._get_current_image(job)
-            desired_image = self._get_desired_image(job)
+            live_image = self._get_live_image(job)
+            spec_image = self._get_spec_image(job)
 
-            logger.debug(f"Current image: {current_image}")
-            logger.debug(f"Desired image: {desired_image}")
+            logger.debug(f"Live image: {live_image}")
+            logger.debug(f"Spec image: {spec_image}")
 
-            if current_image == desired_image:
+            if live_image == spec_image:
                 logger.debug(f"No changes for {job.name}; skipping")
                 continue
 
@@ -132,7 +132,7 @@ class ReconcileHandler(ActionHandler):
             logger.info(f"Reconciling job {job.name}: image changed. Restarting...")
             self.nomad.run_job(job)
 
-    def _get_current_image(self, job: NomadJob) -> str:
+    def _get_live_image(self, job: NomadJob) -> str:
         try:
             result = subprocess.run(
                 ["nomad", "job", "inspect", "-hcl", job.name],
@@ -146,7 +146,7 @@ class ReconcileHandler(ActionHandler):
             logger.error(f"Error inspecting job {job.name}: {e.stderr}")
             return ""
 
-    def _get_desired_image(self, job: NomadJob) -> str:
+    def _get_spec_image(self, job: NomadJob) -> str:
         return self._extract_images(job.spec)
 
     def _extract_images(self, spec: str) -> str:
@@ -227,7 +227,7 @@ class AllFilter(TargetFilter):
 
 
 class NameFilter(TargetFilter):
-    """Returns job matching a single specific name"""
+    """Fallback filter that returns job matching a single specific name"""
 
     def __init__(self, name: str):
         self.name = name
@@ -237,7 +237,7 @@ class NameFilter(TargetFilter):
 
 
 class ContentFilter(TargetFilter):
-    """Returns jobs whose spec or config files contain the specified strings"""
+    """Base class for returning jobs whose spec or configs contain the specified keywords"""
 
     keywords: List[str] = []
     extended_search: bool = False
@@ -278,20 +278,19 @@ class CryptFilter(ContentFilter):
 class JobRegistry:
     """Finds and registers Nomad jobs along with their surrounding config files"""
 
-    # TODO: don't hardcode this here
-    _CONFIGS_PATTERN = [
-        "*.env*",
-        "*.toml*",
-        "*.yml*",
-        "*.yaml*",
-        "*.sh*",
-        "*.cfg*",
-        "*.js*",
-        "*.tpl",
-    ]
-
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, job_cfg_globs: List[str] = []):
         self.config = config
+        # TODO: poor variable naming
+        self.job_cfg_globs = job_cfg_globs or [
+            "*.env*",
+            "*.toml*",
+            "*.yml*",
+            "*.yaml*",
+            "*.sh*",
+            "*.cfg*",
+            "*.js*",
+            "*.tpl",
+        ]
 
     def find_jobs(self) -> List[NomadJob]:
         jobs = []
@@ -316,7 +315,7 @@ class JobRegistry:
 
     def _find_configs(self, directory: Path) -> List[Path]:
         configs = []
-        for pattern in self._CONFIGS_PATTERN:
+        for pattern in self.job_cfg_globs:
             for path in directory.glob(pattern):
                 if path.is_file():
                     configs.append(path)
