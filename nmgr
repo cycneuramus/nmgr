@@ -324,10 +324,12 @@ class JobRegistry:
     @staticmethod
     def _extract_job_name(spec_path: Path) -> str:
         """Scans for "foo" in lines such as: 'job "foo"'"""
-        match = re.search(r'job\s+"([^"]+)"', spec_path.read_text())
-        if not match:
-            raise ValueError("Missing job name in spec")
-        return match.group(1)
+        with spec_path.open() as f:
+            for line in f:
+                match = re.search(r'job\s+"([^"]+)"', line)
+                if match:
+                    return match.group(1)
+        raise ValueError("Missing job name in spec")
 
 
 class NomadClient:
