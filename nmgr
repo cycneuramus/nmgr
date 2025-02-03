@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, Dict, List, Type
+from typing import Callable, Dict, List, Optional, Type
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ class ActionHandler(ABC):
 
 @ActionHandler.register("up")
 class UpHandler(ActionHandler):
-    """Runs a job if not running or spec has changed"""
+    """Runs job if not running or spec has changed"""
 
     def handle(self, jobs: List[NomadJob]):
         for job in jobs:
@@ -92,7 +92,7 @@ class UpHandler(ActionHandler):
 
 @ActionHandler.register("down")
 class DownHandler(ActionHandler):
-    """Stops and purges a job if running"""
+    """Stops and purges job if running"""
 
     def handle(self, jobs: List[NomadJob]):
         for job in jobs:
@@ -102,6 +102,16 @@ class DownHandler(ActionHandler):
 
             logger.debug(f"Bringing job DOWN: {job.name}")
             self.nomad.stop_job(job)
+
+
+@ActionHandler.register("list")
+@ActionHandler.register("find")
+class ListHandler(ActionHandler):
+    """Lists jobs"""
+
+    def handle(self, jobs: List[NomadJob]):
+        for job in jobs:
+            print(job.name)
 
 
 @ActionHandler.register("reconcile")
@@ -237,19 +247,34 @@ class NameFilter(TargetFilter):
 
 
 class ContentFilter(TargetFilter):
-    """Base class for returning jobs whose spec or configs contain the specified keywords"""
+    """Base class for returning jobs whose spec or configs contain specified keywords"""
 
     keywords: List[str] = []
     extended_search: bool = False
+    exclude_infra: bool = True
+
+    def __init__(
+        self,
+        keywords: Optional[List[str]] = None,
+        extended_search: Optional[bool] = None,
+        exclude_infra: Optional[bool] = None,
+    ):
+        # Allow instance-level override of class defaults for e.g. "find" action
+        if keywords is not None:
+            self.keywords = keywords
+        if extended_search is not None:
+            self.extended_search = extended_search
+        if exclude_infra is not None:
+            self.exclude_infra = exclude_infra
 
     def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         matched = []
         for job in jobs:
             text = (job.spec + job.configs) if self.extended_search else job.spec
-            if (
-                any(keyword in text for keyword in self.keywords)
-                and job.name not in config.infra_jobs
+            if any(keyword in text for keyword in self.keywords) and (
+                job.name not in config.infra_jobs if self.exclude_infra else True
             ):
+                logger.debug(f"Keywords {self.keywords} matched in job {job.name}")
                 matched.append(job)
         return matched
 
@@ -402,7 +427,15 @@ class JobManager:
             logger.warning("No jobs found")
             return
 
-        target = TargetFilter.get(self.args.target)
+        if self.args.action == "find":
+            target = ContentFilter(
+                keywords=[self.args.target],
+                extended_search=False,
+                exclude_infra=False,
+            )  # TODO: don't hard-code extended search
+        else:
+            target = TargetFilter.get(self.args.target)
+
         targeted_jobs = target.filter(all_jobs, self.config)
         if not targeted_jobs:
             logger.warning(f"No jobs found matching target: {self.args.target}")
@@ -424,35 +457,35 @@ def main():
     )
     parser.add_argument(
         "action",
-        help=f"Action to perform: {', '.join(ActionHandler._registry.keys())}",
+        help=f"{', '.join(ActionHandler._registry.keys())}",
     )
     parser.add_argument(
         "target",
-        help=f"Target to operate on: {', '.join(TargetFilter._registry.keys())}, or a specific job name",
+        help=f"{', '.join(TargetFilter._registry.keys())}, a specific job name, or a string (for the \"find\" action)",
     )
     parser.add_argument(
         "--base-dir",
         default=Path.home() / "cld",
         type=Path,
-        help="Base directory for discovering Nomad jobs",
+        help="base directory for discovering Nomad jobs",
     )
     parser.add_argument(
         "--ignore-dirs",
         nargs="*",
         default=["_archive", ".github", ".git"],
-        help="Directories to ignore when discovering Nomad jobs",
+        help="directories to ignore when discovering Nomad jobs",
     )
     parser.add_argument(
         "--infra-jobs",
         nargs="*",
         default=["garage", "keydb", "haproxy", "caddy", "patroni"],
-        help="Critical infrastructure jobs to handle with care",
+        help="critical infrastructure jobs to handle with care",
     )
-    parser.add_argument("-n", "--dry-run", action="store_true", help="Dry-run mode")
+    parser.add_argument("-n", "--dry-run", action="store_true", help="dry-run mode")
     parser.add_argument(
-        "-d", "--detach", action="store_true", help="Start jobs in detached mode"
+        "-d", "--detach", action="store_true", help="start jobs in detached mode"
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
 
     args = parser.parse_args()
     if args.verbose:
