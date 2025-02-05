@@ -43,6 +43,58 @@ class NomadJob:
                 logger.warning(f"Error reading {path}: {str(e)}")
         return "\n".join(configs)
 
+    @cached_property
+    def live_image(self) -> str:
+        try:
+            result = subprocess.run(
+                ["nomad", "job", "inspect", "-hcl", self.name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+            return self._extract_images(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error inspecting job {self.name}: {e.stderr}")
+            return ""
+
+    @cached_property
+    def spec_image(self) -> str:
+        return self._extract_images(self.spec)
+
+    @staticmethod
+    def _extract_images(spec: str) -> str:
+        """
+        Scans for lines such as
+            image = "foo/bar"
+        or the content of blocks such as:
+            image = {
+              kutt = "docker.io/kutt/kutt:v3.2.2"
+              valkey = "docker.io/valkey/valkey:8.0-alpine"
+            }
+        """
+
+        pattern = re.compile(r'image\s*=\s*(".*?"|\{[^}]*\})', re.DOTALL)
+        matches = pattern.findall(spec)
+        results = []
+
+        for match in matches:
+            if "local.image" in match:
+                continue  # skip HCL variable references
+
+            match = match.strip()
+            # Extract only content of blocks and split by line
+            if match.startswith("{") and match.endswith("}"):
+                content = match[1:-1].strip()  # remove surrounding brackets
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line:
+                        results.append(line)
+            else:
+                results.append(match)
+
+        return "\n".join(results)
+
 
 class ActionHandler(ABC):
     """Abstract base class for handling user-requested action on Nomad jobs"""
@@ -114,6 +166,15 @@ class ListHandler(ActionHandler):
             print(job.name)
 
 
+@ActionHandler.register("image")
+class ImageHandler(ActionHandler):
+    """Prints container image information for job"""
+
+    def handle(self, jobs: List[NomadJob]):
+        for job in jobs:
+            print(f"Live images:\n{job.live_image}\n\nSpec images:\n{job.spec_image}")
+
+
 @ActionHandler.register("reconcile")
 class ReconcileHandler(ActionHandler):
     """Restarts job if spec contains new image"""
@@ -124,11 +185,11 @@ class ReconcileHandler(ActionHandler):
                 logger.debug(f"Job {job.name} is not running; skipping")
                 continue
 
-            live_image = self._get_live_image(job)
-            spec_image = self._get_spec_image(job)
+            live_image = job.live_image
+            spec_image = job.spec_image
 
-            logger.debug(f"Live image: {live_image}")
-            logger.debug(f"Spec image: {spec_image}")
+            logger.debug(f"Live images:\n{live_image}")
+            logger.debug(f"Spec images:\n{spec_image}")
 
             if live_image == spec_image:
                 logger.debug(f"No changes for {job.name}; skipping")
@@ -141,40 +202,6 @@ class ReconcileHandler(ActionHandler):
 
             logger.info(f"Reconciling job {job.name}: image changed. Restarting...")
             self.nomad.run_job(job)
-
-    def _get_live_image(self, job: NomadJob) -> str:
-        try:
-            result = subprocess.run(
-                ["nomad", "job", "inspect", "-hcl", job.name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True,
-            )
-            return self._extract_images(result.stdout)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error inspecting job {job.name}: {e.stderr}")
-            return ""
-
-    def _get_spec_image(self, job: NomadJob) -> str:
-        return self._extract_images(job.spec)
-
-    def _extract_images(self, spec: str) -> str:
-        """
-        Scans for lines such as 'image = "foo/bar"' or the contents of blocks such as:
-            image = {
-              kutt = "docker.io/kutt/kutt:v3.2.2"
-              valkey = "docker.io/valkey/valkey:8.0-alpine"
-            }
-        """
-        pattern = re.compile(r'image\s*=\s*(".*?"|\{[^}]*\})', re.DOTALL)
-        images = pattern.findall(spec)
-        filtered = [
-            re.sub(r"\s+", " ", img.strip())
-            for img in images
-            if "local.image" not in img  # skip HCL variable references
-        ]
-        return "\n".join(filtered) if filtered else ""
 
 
 class TargetFilter(ABC):
