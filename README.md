@@ -21,16 +21,14 @@ Consider the following use-cases:
     Also, just for fun, you might first want to compare a job's currently running images against those in its specification:
 
     ```
-    $ nmgr image nextcloud
+    $ nmgr image forgejo
     Live images:
-    nextcloud = "docker.io/nextcloud:30.0.4-apache"
-    collabora = "docker.io/collabora/code:24.04.12.2.1"
-    valkey    = "docker.io/valkey/valkey:7.2-alpine"
+    forgejo  = "codeberg.org/forgejo/forgejo:9.0.3-rootless"
+    valkey   = "docker.io/valkey/valkey:7.2-alpine"
 
     Spec images:
-    nextcloud = "docker.io/nextcloud:30.0.5-apache"
-    collabora = "docker.io/collabora/code:24.04.12.1.1"
-    valkey    = "docker.io/valkey/valkey:8.0-alpine"
+    forgejo  = "codeberg.org/forgejo/forgejo:10.0.0-rootless"
+    valkey   = "docker.io/valkey/valkey:8.0-alpine"
     ```
 
 ---
@@ -46,6 +44,24 @@ Consider the following use-cases:
 
     nmgr up all
     ```
+
+---
+
++ Nextcloud's PHP spaghetti has decided to crap the bed, and you have no choice but to start tailing the logs. "What's the syntax again? `nomad logs -f -job nextcloud`? Wait, no, that errors out. Oh, that's right: I have to specify a 'task' to get the logs from. But what did I name the Nextcloud job tasks? I better check the job specification..." *No!* Stop right there.
+
+    ```
+    $ nmgr logs nextcloud
+    Tasks for job nextcloud:
+    1. server
+    2. cron
+    3. redis
+    4. push
+    5. collabora
+
+    Select a task (number):
+    ```
+
+    And off you go.
 
 ---
 
@@ -87,7 +103,7 @@ usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infr
 Nomad job manager
 
 positional arguments:
-  action                up, down, find, list, image, reconcile
+  action                up, down, find, list, image, logs, reconcile
   target                infra, services, all, db, nas, jfs, crypt, a specific job name, or a string (for the "find" action)
 
 options:

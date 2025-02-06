@@ -120,7 +120,39 @@ class ImageHandler(ActionHandler):
 
     def handle(self, jobs: List[NomadJob]):
         for job in jobs:
-            print(f"Live images:\n{self.nomad.get_live_image(job.name)}\n\nSpec images:\n{self.nomad.get_spec_image(job.spec)}")
+            print(
+                f"Live images:\n{self.nomad.get_live_image(job.name)}\n\nSpec images:\n{self.nomad.get_spec_image(job.spec)}"
+            )
+
+
+@ActionHandler.register("logs")
+class LogsHandler(ActionHandler):
+    """Tails the logs for a given task in a job"""
+
+    def handle(self, jobs: List[NomadJob]):
+        if len(jobs) > 1:
+            logger.error("Logs cannot be supplied for more than one job at a time")
+            return
+
+        job = jobs[0]
+        job_tasks = self.nomad._extract_tasks(job.name)
+
+        if len(job_tasks) == 1:
+            # Auto-select the only task
+            task_name = job_tasks[0]
+        else:
+            print(f"Tasks for job {job.name}:")
+            for i, opt in enumerate(job_tasks, start=1):
+                print(f"{i}. {opt}")
+
+            while True:
+                choice = input("\nSelect a task (number): ").strip()
+                if choice.isdigit() or 1 <= int(choice) <= len(job_tasks):
+                    task_name = job_tasks[int(choice) - 1]
+                    break
+                print("Invalid input; please enter a valid number")
+
+        self.nomad.tail_logs(task_name=task_name, job_name=job.name)
 
 
 @ActionHandler.register("reconcile")
@@ -351,16 +383,14 @@ class NomadClient:
         logger.debug(f"Started job: {job.name}")
 
     def stop_job(self, job_name: str) -> None:
-        cmd = ["nomad", "stop", "-purge", job_name]
-        self._execute(cmd)
+        self._execute(["nomad", "stop", "-purge", job_name])
         logger.debug(f"Stopped job: {job_name}")
 
     def is_running(self, job_name: str) -> bool:
-        result = subprocess.run(
+        result = self._execute(
             ["nomad", "job", "status", "-short", job_name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
+            check=False,
+            capture_output=True,
         )
         # Check whether line containing "Status" ends with "running"
         status_line = [ln for ln in result.stdout.splitlines() if "Status" in ln]
@@ -368,14 +398,13 @@ class NomadClient:
             return False
         return status_line[0].split()[-1].lower() == "running"
 
+    def tail_logs(self, task_name: str, job_name: str) -> None:
+        self._execute(["nomad", "logs", "-f", "-task", task_name, "-job", job_name])
+
     def inspect_job(self, job_name: str) -> str:
         try:
-            result = subprocess.run(
-                ["nomad", "job", "inspect", "-hcl", job_name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True,
+            result = self._execute(
+                ["nomad", "job", "inspect", "-hcl", job_name], capture_output=True
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
@@ -383,11 +412,19 @@ class NomadClient:
             return ""
 
     def get_live_image(self, job_name: str) -> str:
-            live_spec = self.inspect_job(job_name)
-            return self._extract_images(live_spec)
+        live_spec = self.inspect_job(job_name)
+        return self._extract_images(live_spec)
 
     def get_spec_image(self, spec: str) -> str:
         return self._extract_images(spec)
+
+    def _extract_tasks(self, job_name: str) -> List[str]:
+        live_spec = self.inspect_job(job_name)
+        matches = re.findall(r'task\s+"([^"]+)"', live_spec)
+        if matches:
+            return matches
+        logger.warning(f"No tasks found for job: {job_name}")
+        return []
 
     @staticmethod
     def _extract_images(spec: str) -> str:
@@ -422,18 +459,27 @@ class NomadClient:
 
         return "\n".join(results)
 
+    def _execute(
+        self,
+        cmd: list,
+        cwd: Optional[str] = None,
+        check: bool = True,
+        capture_output: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        cmd_str = " ".join(cmd)
+        logger.debug(f"Executing command: {cmd_str}" + (f" (cwd={cwd})" if cwd else ""))
 
-    def _execute(self, cmd, cwd=None):
-        logger.debug(
-            f"Executing command: {' '.join(cmd)}" + (f" (cwd={cwd})" if cwd else "")
-        )
-        if self.dry_run:
+        # For commands that modify state, honor dry_run
+        if self.dry_run and not capture_output:
             logger.info("[DRY RUN] %s", " ".join(cmd))
-            return
+            return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
+
         try:
-            subprocess.run(cmd, check=True, text=True, cwd=cwd)
+            return subprocess.run(
+                cmd, check=check, text=True, cwd=cwd, capture_output=capture_output
+            )
         except subprocess.CalledProcessError as e:
-            logger.error(f"Command failed: {' '.join(cmd)}\nError: {e.stderr}")
+            logger.error(f"Command failed: {cmd_str}\nError: {e.stderr}")
             raise
 
 
@@ -490,7 +536,7 @@ def main():
     )
     parser.add_argument(
         "target",
-        help=f"{', '.join(TargetFilter._registry.keys())}, a specific job name, or a string (for the \"find\" action)",
+        help=f'{", ".join(TargetFilter._registry.keys())}, a specific job name, or a string (for the "find" action)',
     )
     parser.add_argument(
         "--base-dir",
