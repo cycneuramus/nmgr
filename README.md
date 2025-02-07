@@ -93,18 +93,18 @@ Consider the following use-cases:
 
 ---
 
-The crux with these examples, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for pre-defined job groups such as `nas`, `db`, etc. actually match your environment. A good way to start hunting for clues would be to inspect [`ContentFilter`](https://github.com/cycneuramus/nmgr/blob/c6533760539cacbed3edc9a6a22f810c14a355e7/nmgr#L276-L327) and its subclasses.
+The crux with these examples, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for pre-defined job groups such as `nas`, `db`, etc. actually match your environment. A good way to start hunting for clues would be to inspect [`ContentFilter`](https://github.com/cycneuramus/nmgr/blob/37f292c49caa37d95c3fae66f28e458f5a2ff54d/nmgr#L258-L309) and its subclasses.
 
 ## Usage
 
 ```
-usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infra-jobs [INFRA_JOBS ...]] [-n] [-d] [-v] action target
+usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infra-jobs [INFRA_JOBS ...]] [-n] [-d] [-v] [--completion] [action] [target]
 
 Nomad job manager
 
 positional arguments:
-  action                up, down, find, list, image, logs, reconcile
-  target                infra, services, all, db, nas, jfs, crypt, a specific job name, or a string (for the "find" action)
+  action                up, down, find, list, image, logs, reconcile (default: None)
+  target                infra, services, all, db, nas, jfs, crypt, a specific job name, or a string (for the "find" action) (default: None)
 
 options:
   -h, --help            show this help message and exit
@@ -116,4 +116,5 @@ options:
   -n, --dry-run         dry-run mode (default: False)
   -d, --detach          start jobs in detached mode (default: False)
   -v, --verbose         verbose output (default: False)
+  --completion          generate autocompletion (default: False)
 ```
