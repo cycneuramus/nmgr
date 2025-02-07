@@ -98,7 +98,7 @@ The crux with these examples, of course, is that you would most likely have to d
 ## Usage
 
 ```
-usage: nmgr [-h] [--base-dir BASE_DIR] [--ignore-dirs [IGNORE_DIRS ...]] [--infra-jobs [INFRA_JOBS ...]] [-n] [-d] [-v] [--completion] [action] [target]
+usage: nmgr [options] [action] [target]
 
 Nomad job manager
 
@@ -108,6 +108,7 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  --completion          install autocompletion for Bash and exit (default: False)
   --base-dir BASE_DIR   base directory for discovering Nomad jobs (default: /home/<user>/cld)
   --ignore-dirs [IGNORE_DIRS ...]
                         directories to ignore when discovering Nomad jobs (default: ['_archive', '.github', '.git'])
@@ -116,5 +117,4 @@ options:
   -n, --dry-run         dry-run mode (default: False)
   -d, --detach          start jobs in detached mode (default: False)
   -v, --verbose         verbose output (default: False)
-  --completion          generate autocompletion (default: False)
 ```

@@ -573,6 +573,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Nomad job manager",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        usage="%(prog)s [options] [action] [target]",
+    )
+    parser.add_argument(
+        "--completion",
+        action="store_true",
+        help="install autocompletion for Bash and exit",
     )
     parser.add_argument(
         "action",
@@ -607,9 +613,6 @@ def main():
         "-d", "--detach", action="store_true", help="start jobs in detached mode"
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
-    parser.add_argument(
-        "--completion", action="store_true", help="generate autocompletion"
-    )
     parser.add_argument("--list-actions", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--list-targets", action="store_true", help=argparse.SUPPRESS)
 
