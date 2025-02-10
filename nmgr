@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import re
 import subprocess
-import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
+from os import getenv
 from pathlib import Path
+from textwrap import dedent
 from typing import Callable, Dict, List, Optional, Type
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
@@ -528,24 +528,37 @@ class JobManager:
 
 
 def generate_completion() -> None:
-    data_dir = os.getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share"
+    data_dir = getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share"
     comp_dir = Path(data_dir) / "bash-completion" / "completions"
-    script_path = Path(comp_dir) / "nmgr"
+    script_path = comp_dir / "nmgr"
 
     script_path.parent.mkdir(parents=True, exist_ok=True)
-    script = textwrap.dedent("""\
+    script = dedent("""\
         #!/bin/bash
 
         _nmgr_completions() {
-            local cur cword actions targets jobs
+            local cur cword actions targets jobs words
             _init_completion || return
 
-            case $cword in
-                1)
+            if [[ $cur == -* ]]; then
+                options="$(nmgr --list-options)"
+                mapfile -t COMPREPLY < <(compgen -W "$options" -- "$cur")
+                return
+            fi
+
+            local arg_count=0
+            for word in "${words[@]:1:$((cword - 1))}"; do
+                if [[ $word != -* ]]; then
+                    ((arg_count++))
+                fi
+            done
+
+            case $arg_count in
+                0)
                     actions="$(nmgr --list-actions)"
                     mapfile -t COMPREPLY < <(compgen -W "$actions" -- "$cur")
                     ;;
-                2)
+                1)
                     targets="$(nmgr --list-targets | sort)"
                     jobs="$(nmgr list all | sort)"
                     mapfile -t COMPREPLY < <(compgen -W "$targets $jobs" -- "$cur")
@@ -613,8 +626,10 @@ def main():
         "-d", "--detach", action="store_true", help="start jobs in detached mode"
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
+    # Auto-completion helpers
     parser.add_argument("--list-actions", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--list-targets", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--list-options", action="store_true", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 
@@ -624,6 +639,13 @@ def main():
     if args.list_targets:
         print("\n".join(TargetFilter._registry.keys()))
         exit(0)
+    if args.list_options:
+        options = []
+        for action in parser._actions:
+            options.extend(action.option_strings)
+        print(" ".join(sorted(set(options))))
+        exit(0)
+
     if args.completion:
         generate_completion()
         exit(0)
