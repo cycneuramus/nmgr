@@ -14,6 +14,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Callable, Dict, List, Optional, Type
 
+import tomllib
+
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,71 @@ class Config:
     base_dir: Path
     ignore_dirs: List[str]
     infra_jobs: List[str]
+    job_configs: List[str]
+    filters: Dict[str, Dict]
+
+    @classmethod
+    def from_toml(cls, config_path: Path) -> Config:
+        if not config_path.exists():
+            cls.create_default(config_path)
+
+        try:
+            with config_path.open("rb") as f:
+                data = tomllib.load(f)
+        except tomllib.TOMLDecodeError as e:
+            raise RuntimeError(f"Invalid TOML syntax: {e}")
+
+        general_cfg = data.get("general", {})
+        return cls(
+            base_dir=Path(general_cfg.get("base_dir", "")).expanduser(),
+            ignore_dirs=general_cfg.get("ignore_dirs", []),
+            infra_jobs=general_cfg.get("infra_jobs", []),
+            job_configs=general_cfg.get("job_configs", []),
+            filters=data.get("filter", {}),
+        )
+
+    @staticmethod
+    def create_default(config_path: Path) -> None:
+        config = dedent(
+            """\
+            # Default configuration for nmgr
+
+            [general]
+
+            # Base directory containing Nomad jobs
+            base_dir = "~/cld"
+
+            # Directories to ignore when scanning for jobs
+            ignore_dirs = ["_archive", ".github", ".git"]
+
+            # Infrastructure jobs to treat with more care (e.g., not auto-restart)
+            infra_jobs = ["garage", "keydb", "haproxy", "caddy", "patroni"]
+
+            # File patterns considered as job configs
+            job_configs = [
+                "*.env*", "*.toml*", "*.yml*", "*.yaml*",
+                "*.sh*", "*.cfg*", "*.js*", "*.tpl"
+            ]
+
+            # Custom job filters
+            # [filter]
+
+            # Example: jobs containing "/mnt/nas" in its spec
+            # nas.keywords = ["/mnt/nas"]
+            # Example: jobs containing "/mnt/jfs" in its spec
+            # jfs.keywords = ["/mnt/jfs"]
+
+            # Example: jobs containing "15432" in its spec or accompanying config files, including infra jobs
+            # [filter.db]
+            # keywords = ["15432"]
+            # extended_search = true
+            # exclude_infra = false
+            """
+        )
+
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(config, encoding="utf-8")
+        logger.info(f"Generated default config at {config_path}")
 
 
 @dataclass
@@ -46,27 +113,25 @@ class NomadJob:
         return "\n".join(configs)
 
 
-class ActionHandler(ABC):
+class Action(ABC):
     """Abstract base class for handling user-requested action on Nomad jobs"""
 
-    _registry: Dict[str, Type[ActionHandler]] = {}
+    _registry: Dict[str, Type[Action]] = {}
 
     def __init__(self, nomad: NomadClient, config: Config):
         self.nomad = nomad
         self.config = config
 
     @classmethod
-    def register(
-        cls, action: str
-    ) -> Callable[[Type[ActionHandler]], Type[ActionHandler]]:
-        def decorator(subcls: Type[ActionHandler]) -> Type[ActionHandler]:
+    def register(cls, action: str) -> Callable[[Type[Action]], Type[Action]]:
+        def decorator(subcls: Type[Action]) -> Type[Action]:
             cls._registry[action] = subcls
             return subcls
 
         return decorator
 
     @classmethod
-    def get(cls, action: str, nomad: NomadClient, config: Config) -> ActionHandler:
+    def get(cls, action: str, nomad: NomadClient, config: Config) -> Action:
         try:
             handler_cls = cls._registry[action]
         except KeyError:
@@ -74,15 +139,15 @@ class ActionHandler(ABC):
         return handler_cls(nomad, config)
 
     @abstractmethod
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         pass
 
 
-@ActionHandler.register("up")
-class UpHandler(ActionHandler):
+@Action.register("up")
+class UpAction(Action):
     """Runs job if not running or spec has changed"""
 
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         for job in jobs:
             if self.nomad.is_running(job.name):
                 logger.debug(f"Job {job.name} is already running; skipping")
@@ -92,11 +157,11 @@ class UpHandler(ActionHandler):
             self.nomad.run_job(job)
 
 
-@ActionHandler.register("down")
-class DownHandler(ActionHandler):
+@Action.register("down")
+class DownAction(Action):
     """Stops and purges job if running"""
 
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         for job in jobs:
             if not self.nomad.is_running(job.name):
                 logger.debug(f"Job {job.name} is not running; skipping")
@@ -106,62 +171,62 @@ class DownHandler(ActionHandler):
             self.nomad.stop_job(job.name)
 
 
-@ActionHandler.register("list")
-@ActionHandler.register("find")
-class ListHandler(ActionHandler):
+@Action.register("list")
+@Action.register("find")
+class ListAction(Action):
     """Lists jobs"""
 
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         for job in jobs:
             print(job.name)
 
 
-@ActionHandler.register("image")
-class ImageHandler(ActionHandler):
+@Action.register("image")
+class ImageAction(Action):
     """Prints container image information for job"""
 
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         for job in jobs:
-            print(
-                f"Live images:\n{self.nomad.get_live_image(job.name)}\n\nSpec images:\n{self.nomad.get_spec_image(job.spec)}"
-            )
+            live = self.nomad.get_live_image(job.name)
+            spec = self.nomad.get_spec_image(job.spec)
+            print(f"Live images:\n{live}\n\nSpec images:\n{spec}")
 
 
-@ActionHandler.register("logs")
-class LogsHandler(ActionHandler):
+@Action.register("logs")
+class LogsAction(Action):
     """Tails the logs for a given task in a job"""
 
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         if len(jobs) > 1:
             logger.error("Logs cannot be supplied for more than one job at a time")
             return
 
         job = jobs[0]
-        job_tasks = self.nomad._extract_tasks(job.name)
+        tasks = self.nomad._extract_tasks(job.name)
 
-        if len(job_tasks) == 1:
+        if len(tasks) == 1:
             # Auto-select the only task
-            task_name = job_tasks[0]
+            task = tasks[0]
         else:
             print(f"Tasks for job {job.name}:")
-            for i, opt in enumerate(job_tasks, start=1):
+            for i, opt in enumerate(tasks, start=1):
                 print(f"{i}. {opt}")
 
             while True:
                 choice = input("\nSelect a task (number): ").strip()
-                if choice.isdigit() or 1 <= int(choice) <= len(job_tasks):
-                    task_name = job_tasks[int(choice) - 1]
+                if choice.isdigit() or 1 <= int(choice) <= len(tasks):
+                    task = tasks[int(choice) - 1]
                     break
                 print("Invalid input; please enter a valid number")
 
-        self.nomad.tail_logs(task_name=task_name, job_name=job.name)
+        self.nomad.tail_logs(task_name=task, job_name=job.name)
 
 
-@ActionHandler.register("reconcile")
-class ReconcileHandler(ActionHandler):
+@Action.register("reconcile")
+class ReconcileAction(Action):
     """Restarts job if spec contains new image"""
 
-    def handle(self, jobs: List[NomadJob]):
+    def handle(self, jobs: List[NomadJob]) -> None:
         for job in jobs:
             if not self.nomad.is_running(job.name):
                 logger.debug(f"Job {job.name} is not running; skipping")
@@ -186,27 +251,38 @@ class ReconcileHandler(ActionHandler):
             self.nomad.run_job(job)
 
 
-class TargetFilter(ABC):
+class Filter(ABC):
     """Abstract base class for filtering Nomad jobs by user-requested target"""
 
-    _registry: Dict[str, Type[TargetFilter]] = {}
+    _registry: Dict[str, Type[Filter]] = {}
 
     @classmethod
-    def register(
-        cls, target: str
-    ) -> Callable[[Type[TargetFilter]], Type[TargetFilter]]:
-        def decorator(subcls: Type[TargetFilter]) -> Type[TargetFilter]:
+    def register(cls, target: str) -> Callable[[Type[Filter]], Type[Filter]]:
+        def decorator(subcls: Type[Filter]) -> Type[Filter]:
             cls._registry[target] = subcls
             return subcls
 
         return decorator
 
     @classmethod
-    def get(cls, target: str) -> TargetFilter:
-        filter_cls = cls._registry.get(target)
-        if filter_cls is not None:
-            return filter_cls()
-        # If user-requested target is not in registry, assume it's a job name
+    def get(cls, target: str, config: Config) -> Filter:
+        # 1) Built-in filter?
+        if target in cls._registry:
+            logger.debug(f"Target '{target}' matches built-in filter")
+            return cls._registry[target]()
+
+        # 2) Config-defined filter?
+        if target in config.filters:
+            logger.debug(f"Target '{target}' matches config-defined filter")
+            filter_cfg = config.filters[target]
+            return ContentFilter(
+                keywords=filter_cfg.get("keywords", []),
+                extended_search=filter_cfg.get("extended_search", False),
+                exclude_infra=filter_cfg.get("exclude_infra", True),
+            )
+
+        # 3) Fallback: assume target as a job name
+        logger.debug(f"Target '{target}' not matching any filter, treating as job name")
         return NameFilter(target)
 
     @abstractmethod
@@ -214,9 +290,9 @@ class TargetFilter(ABC):
         pass
 
 
-@TargetFilter.register("infra")
-class InfraFilter(TargetFilter):
-    """Returns infrastructure jobs, respecting their order in config.infra_jobs"""
+@Filter.register("infra")
+class InfraFilter(Filter):
+    """Returns infrastructure jobs, respecting their order in config"""
 
     def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         ordered = []
@@ -227,16 +303,16 @@ class InfraFilter(TargetFilter):
         return ordered
 
 
-@TargetFilter.register("services")
-class ServicesFilter(TargetFilter):
+@Filter.register("services")
+class ServicesFilter(Filter):
     """Returns service (i.e. non-infrastructure) jobs"""
 
     def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         return [job for job in jobs if job.name not in config.infra_jobs]
 
 
-@TargetFilter.register("all")
-class AllFilter(TargetFilter):
+@Filter.register("all")
+class AllFilter(Filter):
     """Returns both infra and services jobs, always ordering infra jobs first"""
 
     def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
@@ -245,7 +321,7 @@ class AllFilter(TargetFilter):
         return infra + services
 
 
-class NameFilter(TargetFilter):
+class NameFilter(Filter):
     """Fallback filter that returns job matching a single specific name"""
 
     def __init__(self, name: str):
@@ -255,76 +331,35 @@ class NameFilter(TargetFilter):
         return [job for job in jobs if job.name == self.name]
 
 
-class ContentFilter(TargetFilter):
-    """Base class for returning jobs whose spec or configs contain specified keywords"""
-
-    keywords: List[str] = []
-    extended_search: bool = False
-    exclude_infra: bool = True
+class ContentFilter(Filter):
+    """Parametric filter for searching job specs and accompanying configs"""
 
     def __init__(
         self,
-        keywords: Optional[List[str]] = None,
-        extended_search: Optional[bool] = None,
-        exclude_infra: Optional[bool] = None,
+        keywords: List[str],
+        extended_search: bool = False,
+        exclude_infra: bool = True,
     ):
-        # Allow instance-level override of class defaults for e.g. "find" action
-        if keywords is not None:
-            self.keywords = keywords
-        if extended_search is not None:
-            self.extended_search = extended_search
-        if exclude_infra is not None:
-            self.exclude_infra = exclude_infra
+        self.keywords = keywords
+        self.extended_search = extended_search
+        self.exclude_infra = exclude_infra
 
     def filter(self, jobs: List[NomadJob], config: Config) -> List[NomadJob]:
         matched = []
         for job in jobs:
-            text = (job.spec + job.configs) if self.extended_search else job.spec
-            if any(keyword in text for keyword in self.keywords) and (
-                job.name not in config.infra_jobs if self.exclude_infra else True
-            ):
-                logger.debug(f"Keywords {self.keywords} matched in job {job.name}")
+            text = job.spec + job.configs if self.extended_search else job.spec
+            if any(keyword in text for keyword in self.keywords):
+                if self.exclude_infra and job.name in config.infra_jobs:
+                    continue
                 matched.append(job)
         return matched
 
 
-@TargetFilter.register("db")
-class DBFilter(ContentFilter):
-    keywords = ["15432"]
-    extended_search = True
+class JobRegistrar:
+    """Locates and registers Nomad job specs and accompanying config files"""
 
-
-@TargetFilter.register("nas")
-class NASFilter(ContentFilter):
-    keywords = ["/mnt/nas"]
-
-
-@TargetFilter.register("jfs")
-class JFSFilter(ContentFilter):
-    keywords = ["/mnt/jfs"]
-
-
-@TargetFilter.register("crypt")
-class CryptFilter(ContentFilter):
-    keywords = ["/mnt/crypt"]
-
-
-class JobRegistry:
-    """Finds and registers Nomad jobs along with their surrounding config files"""
-
-    def __init__(self, config: Config, job_cfg_globs: List[str] = []):
+    def __init__(self, config: Config):
         self.config = config
-        # TODO: poor variable naming
-        self.job_cfg_globs = job_cfg_globs or [
-            "*.env*",
-            "*.toml*",
-            "*.yml*",
-            "*.yaml*",
-            "*.sh*",
-            "*.cfg*",
-            "*.js*",
-            "*.tpl",
-        ]
 
     def find_jobs(self) -> List[NomadJob]:
         jobs = []
@@ -333,11 +368,11 @@ class JobRegistry:
                 logger.debug(f"Skipping: {path}")
                 continue
 
-            for spec_path in path.glob("*.hcl"):
+            for spec_file in path.glob("*.hcl"):
                 try:
-                    jobs.append(self._register_job(spec_path))
+                    jobs.append(self._register_job(spec_file))
                 except ValueError as e:
-                    logger.warning(f"Failed to load {spec_path}: {e}")
+                    logger.warning(f"Failed to load {spec_file}: {e}")
         return jobs
 
     def _register_job(self, spec_path: Path) -> NomadJob:
@@ -349,11 +384,9 @@ class JobRegistry:
 
     def _find_configs(self, directory: Path) -> List[Path]:
         configs = []
-        for pattern in self.job_cfg_globs:
-            for path in directory.glob(pattern):
-                if path.is_file():
-                    configs.append(path)
-        return configs
+        for pattern in self.config.job_configs:
+            configs.extend(directory.glob(pattern))
+        return [config for config in configs if config.is_file()]
 
     @staticmethod
     def _extract_job_name(spec_path: Path) -> str:
@@ -390,12 +423,13 @@ class NomadClient:
 
     def is_running(self, job_name: str) -> bool:
         result = self._execute(
+            # TODO: check `nomad job status -json` instead
             ["nomad", "job", "status", "-short", job_name],
             check=False,
             capture_output=True,
         )
         # Check whether line containing "Status" ends with "running"
-        status_line = [ln for ln in result.stdout.splitlines() if "Status" in ln]
+        status_line = [line for line in result.stdout.splitlines() if "Status" in line]
         if not status_line:
             return False
         return status_line[0].split()[-1].lower() == "running"
@@ -430,6 +464,7 @@ class NomadClient:
 
     @staticmethod
     def _extract_images(spec: str) -> str:
+        # TODO: return sorted lists instead of raw strings
         """
         Scans for lines such as
             image = "foo/bar"
@@ -442,10 +477,11 @@ class NomadClient:
 
         pattern = re.compile(r'image\s*=\s*(".*?"|\{[^}]*\})', re.DOTALL)
         matches = pattern.findall(spec)
+
         results = []
 
         for match in matches:
-            if "local.image" in match:
+            if "local." in match:
                 continue  # skip HCL variable references
 
             match = match.strip()
@@ -463,7 +499,7 @@ class NomadClient:
 
     def _execute(
         self,
-        cmd: list,
+        cmd: List[str],
         cwd: Optional[str] = None,
         check: bool = True,
         capture_output: bool = False,
@@ -485,21 +521,23 @@ class NomadClient:
             raise
 
 
-class JobManager:
+class App:
     """Orchestrates the program flow"""
 
-    def __init__(self, args):
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        config: Config,
+        nomad: NomadClient,
+        registrar: JobRegistrar,
+    ):
         self.args = args
-        self.config = Config(
-            base_dir=args.base_dir,
-            ignore_dirs=args.ignore_dirs,
-            infra_jobs=args.infra_jobs,
-        )
-        self.job_registry = JobRegistry(self.config)
-        self.nomad = NomadClient(self.config, dry_run=args.dry_run, detach=args.detach)
+        self.config = config
+        self.registrar = registrar
+        self.nomad = nomad
 
-    def run(self):
-        all_jobs = self.job_registry.find_jobs()
+    def run(self) -> None:
+        all_jobs = self.registrar.find_jobs()
         if not all_jobs:
             logger.warning("No jobs found")
             return
@@ -511,29 +549,29 @@ class JobManager:
                 exclude_infra=False,
             )  # TODO: don't hard-code extended search
         else:
-            target = TargetFilter.get(self.args.target)
+            target = Filter.get(self.args.target, self.config)
 
-        targeted_jobs = target.filter(all_jobs, self.config)
-        if not targeted_jobs:
+        jobs = target.filter(all_jobs, self.config)
+        if not jobs:
             logger.warning(f"No jobs found matching target: {self.args.target}")
             return
 
         try:
-            action = ActionHandler.get(self.args.action, self.nomad, self.config)
+            action = Action.get(self.args.action, self.nomad, self.config)
         except ValueError as e:
             logger.error(e)
             return
 
-        action.handle(targeted_jobs)
+        action.handle(jobs)
 
 
 def generate_completion() -> None:
     data_dir = getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share"
-    comp_dir = Path(data_dir) / "bash-completion" / "completions"
-    script_path = comp_dir / "nmgr"
+    script_path = Path(data_dir) / "bash-completion" / "completions" / "nmgr"
 
     script_path.parent.mkdir(parents=True, exist_ok=True)
-    script = dedent("""\
+    script = dedent(
+        """\
         #!/bin/bash
 
         _nmgr_completions() {
@@ -567,7 +605,8 @@ def generate_completion() -> None:
         }
 
         complete -o nosort -F _nmgr_completions nmgr
-    """)
+        """
+    )
 
     if script_path.exists():
         existing_content = script_path.read_text(encoding="utf-8")
@@ -582,51 +621,44 @@ def generate_completion() -> None:
     logger.info("Bash completion script installed at {script_path}")
 
 
-def main():
+def main() -> None:
+    actions = Action._registry.keys()
+    targets = Filter._registry.keys()
+    config_dir = getenv("XDG_CONFIG_HOME") or Path.home() / ".config"
+    config_path = Path(config_dir) / "nmgr" / "config.toml"
+
     parser = argparse.ArgumentParser(
         description="Nomad job manager",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         usage="%(prog)s [options] [action] [target]",
-    )
-    parser.add_argument(
-        "--completion",
-        action="store_true",
-        help="install autocompletion for Bash and exit",
     )
     parser.add_argument(
         "action",
         nargs="?",
-        help=f"{', '.join(ActionHandler._registry.keys())}",
+        help=f"{', '.join(actions)}",
     )
     parser.add_argument(
         "target",
         nargs="?",
-        help=f'{", ".join(TargetFilter._registry.keys())}, a specific job name, or a string (for the "find" action)',
+        help=f'{", ".join(targets)}, a custom filter, a specific job name, or a string (for the "find" action)',
     )
     parser.add_argument(
-        "--base-dir",
-        default=Path.home() / "cld",
+        "-c",
+        "--config",
+        default=config_path,
         type=Path,
-        help="base directory for discovering Nomad jobs",
-    )
-    parser.add_argument(
-        "--ignore-dirs",
-        nargs="*",
-        default=["_archive", ".github", ".git"],
-        help="directories to ignore when discovering Nomad jobs",
-    )
-    parser.add_argument(
-        "--infra-jobs",
-        nargs="*",
-        default=["garage", "keydb", "haproxy", "caddy", "patroni"],
-        help="critical infrastructure jobs to handle with care",
+        help=f"path to config file (default: {config_path})",
     )
     parser.add_argument("-n", "--dry-run", action="store_true", help="dry-run mode")
     parser.add_argument(
         "-d", "--detach", action="store_true", help="start jobs in detached mode"
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
-    # Auto-completion helpers
+    parser.add_argument(
+        "--completion",
+        action="store_true",
+        help="install autocompletion for Bash and exit",
+    )
+    # Bash-completion helpers
     parser.add_argument("--list-actions", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--list-targets", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--list-options", action="store_true", help=argparse.SUPPRESS)
@@ -634,18 +666,17 @@ def main():
     args = parser.parse_args()
 
     if args.list_actions:
-        print("\n".join(ActionHandler._registry.keys()))
+        print("\n".join(actions))
         exit(0)
     if args.list_targets:
-        print("\n".join(TargetFilter._registry.keys()))
+        print("\n".join(targets))
         exit(0)
     if args.list_options:
         options = []
         for action in parser._actions:
             options.extend(action.option_strings)
-        print(" ".join(sorted(set(options))))
+        print("\n".join(sorted(set(options))))
         exit(0)
-
     if args.completion:
         generate_completion()
         exit(0)
@@ -654,7 +685,16 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     try:
-        JobManager(args).run()
+        config = Config.from_toml(args.config)
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+        exit(1)
+
+    try:
+        nomad = NomadClient(config, args.dry_run, args.detach)
+        registrar = JobRegistrar(config)
+        app = App(args, config, nomad, registrar)
+        app.run()
     except KeyboardInterrupt:
         logger.info("Interrupted")
         exit(0)

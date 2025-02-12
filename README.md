@@ -93,7 +93,7 @@ Consider the following use-cases:
 
 ---
 
-The crux with these examples, of course, is that you would most likely have to dive into the source code to make sure the filtering criteria for pre-defined job groups such as `nas`, `db`, etc. actually match your environment. A good way to start hunting for clues would be to inspect [`ContentFilter`](https://github.com/cycneuramus/nmgr/blob/37f292c49caa37d95c3fae66f28e458f5a2ff54d/nmgr#L258-L309) and its subclasses.
+**NOTE**: Some of these examples make use of custom target filters (`nas`, `jfs`, `db`) that can be defined in the configuration file. Such a file with defaults and examples will be generated on first run.
 
 ## Usage
 
@@ -103,18 +103,15 @@ usage: nmgr [options] [action] [target]
 Nomad job manager
 
 positional arguments:
-  action                up, down, find, list, image, logs, reconcile (default: None)
-  target                infra, services, all, db, nas, jfs, crypt, a specific job name, or a string (for the "find" action) (default: None)
+  action                up, down, find, list, image, logs, reconcile
+  target                infra, services, all, a custom filter, a specific job name, or a string (for the "find" action)
 
 options:
   -h, --help            show this help message and exit
-  --completion          install autocompletion for Bash and exit (default: False)
-  --base-dir BASE_DIR   base directory for discovering Nomad jobs (default: /home/<user>/cld)
-  --ignore-dirs [IGNORE_DIRS ...]
-                        directories to ignore when discovering Nomad jobs (default: ['_archive', '.github', '.git'])
-  --infra-jobs [INFRA_JOBS ...]
-                        critical infrastructure jobs to handle with care (default: ['garage', 'keydb', 'haproxy', 'caddy', 'patroni'])
-  -n, --dry-run         dry-run mode (default: False)
-  -d, --detach          start jobs in detached mode (default: False)
-  -v, --verbose         verbose output (default: False)
+  -c CONFIG, --config CONFIG
+                        path to config file (default: /home/<user>/.config/nmgr/config.toml)
+  -n, --dry-run         dry-run mode
+  -d, --detach          start jobs in detached mode
+  -v, --verbose         verbose output
+  --completion          install autocompletion for Bash and exit
 ```
