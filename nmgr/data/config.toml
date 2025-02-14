@@ -1,0 +1,32 @@
+# Default configuration for nmgr
+
+[general]
+
+# Base directory containing Nomad jobs
+base_dir = "~/nomad"
+
+# Directories to ignore when discovering job specs
+ignore_dirs = [".github", ".git"]
+
+# File patterns considered as job configs
+job_configs = [
+	"*.env*", "*.toml*", "*.yml*", "*.yaml*",
+	"*.sh*", "*.cfg*", "*.js*", "*.tpl"
+]
+
+# Infrastructure jobs to treat with more care (e.g., not auto-restart)
+# infra_jobs = ["garage", "keydb", "haproxy", "caddy", "patroni"]
+
+# Custom job filters
+# [filter]
+
+# Example: jobs containing "/mnt/nas" in its spec
+# nas.keywords = ["/mnt/nas"]
+# Example: jobs containing "/mnt/jfs" in its spec
+# jfs.keywords = ["/mnt/jfs"]
+
+# Example: jobs containing "15432" in its spec or accompanying config files, including infra jobs
+# [filter.db]
+# keywords = ["15432"]
+# extended_search = true
+# exclude_infra = false

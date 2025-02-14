@@ -1,11 +1,34 @@
 ## Overview
 
-`nmgr` is a utility program for managing jobs in a Nomad cluster according to certain specific needs and preferences of mine. The type of jobs it is designed to operate on can be gleaned from my [homelab repository](https://github.com/cycneuramus/homelab).
+`nmgr` is a utility program for managing jobs in a Nomad cluster according to certain specific needs and preferences of mine. For a basic orientation in what it does and why it does it, see [Rationale](https://github.com/cycneuramus/nmgr#rationale). The type of jobs it is designed to operate on can be gleaned from my [homelab repository](https://github.com/cycneuramus/homelab).
 
-It started as a set of Bash convenience functions which, in time, slowly but surely [threatened](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
+This started as a set of Bash convenience functions which, in time, slowly but surely [threatened](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
 
-If it's not clear by now, this program should probably not be used without understanding what it does and why it does it.
+## Installation
 
+`nmgr` is packaged on [PyPi](https://pypi.org/project/nmgr) and can be installed using, for example, [`pipx`](https://pipx.pypa.io/stable/):
+
++ `pipx install nmgr`
+
+## Usage
+
+```
+usage: nmgr [options] [action] [target]
+
+Nomad job manager
+
+positional arguments:
+  action               up, down, find, list, image, logs, reconcile
+  target               infra, services, all, a custom filter, a specific job name, or a string (for "find")
+
+options:
+  -h, --help           show this help message and exit
+  -c, --config CONFIG  path to config file (default: /home/<user>/.config/nmgr/config.toml)
+  -n, --dry-run        dry-run mode
+  -d, --detach         start jobs in detached mode
+  -v, --verbose        verbose output
+  --completion         install autocompletion for Bash and exit
+```
 ## Rationale
 
 Consider the following use-cases:
@@ -93,25 +116,4 @@ Consider the following use-cases:
 
 ---
 
-**NOTE**: Some of these examples make use of custom target filters (`nas`, `jfs`, `db`) that can be defined in the configuration file. Such a file with defaults and examples will be generated on first run.
-
-## Usage
-
-```
-usage: nmgr [options] [action] [target]
-
-Nomad job manager
-
-positional arguments:
-  action                up, down, find, list, image, logs, reconcile
-  target                infra, services, all, a custom filter, a specific job name, or a string (for the "find" action)
-
-options:
-  -h, --help            show this help message and exit
-  -c CONFIG, --config CONFIG
-                        path to config file (default: /home/<user>/.config/nmgr/config.toml)
-  -n, --dry-run         dry-run mode
-  -d, --detach          start jobs in detached mode
-  -v, --verbose         verbose output
-  --completion          install autocompletion for Bash and exit
-```
+**NOTE**: Some of these examples make use of custom target filters (`nas`, `jfs`, `db`). These can be defined in the [configuration file](https://github.com/cycneuramus/nmgr/blob/master/nmgr/data/config.toml) that will be generated on first run.
