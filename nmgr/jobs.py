@@ -36,7 +36,7 @@ class JobRegistrar:
         self.config = config
 
     def find_jobs(self) -> list[NomadJob]:
-        jobs = []
+        jobs: list = []
         if not self.config.base_dir.is_dir():
             logger.warning(f"Base directory not found: {self.config.base_dir}")
             return jobs
@@ -61,7 +61,7 @@ class JobRegistrar:
         )
 
     def _find_configs(self, job_dir: Path) -> list[Path]:
-        configs = []
+        configs: list = []
         for pattern in self.config.job_configs:
             configs.extend(job_dir.glob(pattern))
         return [config for config in configs if config.is_file()]

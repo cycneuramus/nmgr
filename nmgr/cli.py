@@ -95,7 +95,7 @@ def run() -> None:
         return
 
     if args.list_options:
-        all_options = []
+        all_options: list = []
         for action in parser._actions:
             all_options.extend(action.option_strings)
         print("\n".join(sorted(set(all_options))))
