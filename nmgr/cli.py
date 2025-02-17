@@ -8,10 +8,10 @@ from pathlib import Path
 
 from nmgr.actions import Action
 from nmgr.config import Config
-from nmgr.filters import ContentFilter, Filter
 from nmgr.jobs import JobRegistrar
 from nmgr.log import logger
 from nmgr.nomad import NomadClient
+from nmgr.targets import ContentTarget, Target
 
 
 def create_parser(actions: list[str], targets: list[str]) -> argparse.ArgumentParser:
@@ -81,7 +81,7 @@ def generate_completion() -> None:
 
 def run() -> None:
     actions = list(Action._registry.keys())
-    targets = list(Filter._registry.keys())
+    targets = list(Target._registry.keys())
 
     parser = create_parser(actions, targets)
     args = parser.parse_args()
@@ -122,13 +122,13 @@ def run() -> None:
 
     if args.action == "find":
         # 'find' action: interpret target as a substring to search in job specs only
-        target = ContentFilter(
+        target = ContentTarget(
             keywords=[args.target],
             extended_search=False,
             exclude_infra=False,
         )
     else:
-        target = Filter.get(args.target, config)
+        target = Target.get(args.target, config)
 
     jobs = target.filter(all_jobs, config)
     if not jobs:
