@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -19,15 +20,13 @@ class NomadJob:
     def spec(self) -> str:
         return self.spec_path.read_text()
 
-    @cached_property
-    def configs(self) -> str:
-        configs = []
+    @property
+    def configs(self) -> Iterable[str]:
         for path in self.config_paths:
             try:
-                configs.append(path.read_text())
+                yield path.read_text()
             except Exception as e:
                 logger.warning(f"Error reading {path}: {str(e)}")
-        return "\n".join(configs)
 
 
 class JobRegistrar:

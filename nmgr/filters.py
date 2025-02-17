@@ -103,9 +103,14 @@ class ContentFilter(Filter):
     def filter(self, jobs: list[NomadJob], config: Config) -> list[NomadJob]:
         matched = []
         for job in jobs:
-            text = job.spec + job.configs if self.extended_search else job.spec
-            if any(keyword in text for keyword in self.keywords):
-                if self.exclude_infra and job.name in config.infra_jobs:
-                    continue
-                matched.append(job)
+            sources = [job.spec]
+            if self.extended_search:
+                sources.extend(job.configs)
+
+            for text in sources:
+                if any(keyword in text for keyword in self.keywords):
+                    if self.exclude_infra and job.name in config.infra_jobs:
+                        continue
+                    matched.append(job)
+                    break  # one match is sufficient
         return matched
