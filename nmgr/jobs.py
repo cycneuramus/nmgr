@@ -32,7 +32,7 @@ class NomadJob:
 class JobRegistrar:
     """Locates and registers Nomad job specs and accompanying config files"""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.config = config
 
     def find_jobs(self) -> list[NomadJob]:

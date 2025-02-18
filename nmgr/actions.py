@@ -14,7 +14,7 @@ class Action(ABC):
 
     _registry: dict[str, type[Action]] = {}
 
-    def __init__(self, nomad: NomadClient, config: Config):
+    def __init__(self, nomad: NomadClient, config: Config) -> None:
         self.nomad = nomad
         self.config = config
 

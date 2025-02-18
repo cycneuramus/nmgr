@@ -80,7 +80,7 @@ class AllTarget(Target):
 class NameTarget(Target):
     """Fallback target that returns a single specific job by name"""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
     def filter(self, jobs: list[NomadJob], config: Config) -> list[NomadJob]:
@@ -95,7 +95,7 @@ class ContentTarget(Target):
         keywords: list[str],
         extended_search: bool = False,
         exclude_infra: bool = True,
-    ):
+    ) -> None:
         self.keywords = keywords
         self.extended_search = extended_search
         self.exclude_infra = exclude_infra

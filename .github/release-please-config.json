@@ -2,5 +2,9 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "python",
   "pull-request-title-pattern": "chore: release ${version}",
-  "always-update": true
+  "include-v-in-tag": true,
+  "always-update": true,
+  "packages": {
+    ".": {}
+  }
 }
