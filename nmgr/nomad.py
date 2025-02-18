@@ -12,7 +12,9 @@ from nmgr.log import logger
 class NomadClient:
     """Wraps interactions with the Nomad CLI"""
 
-    def __init__(self, config: Config, dry_run: bool = False, detach: bool = False):
+    def __init__(
+        self, config: Config, dry_run: bool = False, detach: bool = False
+    ) -> None:
         self.config = config
         self.dry_run = dry_run
         self.detach = detach
