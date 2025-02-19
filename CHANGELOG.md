@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/cycneuramus/nmgr/compare/v0.2.0...v0.2.1) (2025-02-19)
+
+
+### Documentation
+
+* Clarify custom filter matching ([acd6275](https://github.com/cycneuramus/nmgr/commit/acd6275aaeb76f6830501c5ba94b06da888a5351))
+
 ## [0.2.0](https://github.com/cycneuramus/nmgr/compare/v0.1.1...v0.2.0) (2025-02-19)
 
 
