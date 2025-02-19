@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from importlib import resources
+from importlib import metadata, resources
 from pathlib import Path
 
 from nmgr.actions import Action
@@ -48,6 +48,11 @@ def create_parser(actions: list[str], targets: list[str]) -> argparse.ArgumentPa
         "--completion",
         action="store_true",
         help="install autocompletion for Bash and exit",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {metadata.version('nmgr')}",
     )
 
     # Hidden flags for bash-completion logic
