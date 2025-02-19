@@ -20,10 +20,10 @@ job_configs = [
 # Custom job filters
 # [filter]
 
-# Example: jobs containing "/mnt/nas" in its spec
+# Example: jobs containing "/mnt/nas" in its spec (quotes or not = will also match e.g. /mnt/nascar)
 # nas.keywords = ["/mnt/nas"]
-# Example: jobs containing "/mnt/jfs" in its spec
-# jfs.keywords = ["/mnt/jfs"]
+# Example: jobs containing "/mnt/jfs" in its spec (including quotes = exact match)
+# jfs.keywords = ['"/mnt/jfs"']
 
 # Example: jobs containing "15432" in its spec or accompanying config files, including infra jobs
 # [filter.db]
