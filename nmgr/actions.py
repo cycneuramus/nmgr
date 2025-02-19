@@ -55,7 +55,7 @@ class UpAction(Action):
 
 @Action.register("down")
 class DownAction(Action):
-    """Stops and purges job if running"""
+    """Stops job if running"""
 
     def handle(self, jobs: list[NomadJob]) -> None:
         for job in jobs:

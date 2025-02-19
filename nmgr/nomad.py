@@ -13,11 +13,16 @@ class NomadClient:
     """Wraps interactions with the Nomad CLI"""
 
     def __init__(
-        self, config: Config, dry_run: bool = False, detach: bool = False
+        self,
+        config: Config,
+        dry_run: bool = False,
+        detach: bool = False,
+        purge: bool = False,
     ) -> None:
         self.config = config
         self.dry_run = dry_run
         self.detach = detach
+        self.purge = purge
 
     def run_job(self, job: NomadJob) -> None:
         cmd = ["nomad", "run"]
@@ -30,7 +35,12 @@ class NomadClient:
         logger.debug(f"Started job: {job.name}")
 
     def stop_job(self, job_name: str) -> None:
-        self._execute(["nomad", "stop", "-purge", job_name])
+        cmd = ["nomad", "stop"]
+        if self.purge:
+            cmd.append("-purge")
+        cmd.append(job_name)
+
+        self._execute(cmd)
         logger.debug(f"Stopped job: {job_name}")
 
     def is_running(self, job_name: str) -> bool:

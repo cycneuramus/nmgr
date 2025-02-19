@@ -26,8 +26,10 @@ options:
   -c, --config CONFIG  path to config file (default: /home/<user>/.config/nmgr/config.toml)
   -n, --dry-run        dry-run mode
   -d, --detach         start jobs in detached mode
+  -p, --purge          purge jobs when stopping
   -v, --verbose        verbose output
   --completion         install autocompletion for Bash and exit
+  --version            show program's version number and exit
 ```
 ## Rationale
 

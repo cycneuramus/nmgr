@@ -43,6 +43,9 @@ def create_parser(actions: list[str], targets: list[str]) -> argparse.ArgumentPa
     parser.add_argument(
         "-d", "--detach", action="store_true", help="start jobs in detached mode"
     )
+    parser.add_argument(
+        "-p", "--purge", action="store_true", help="purge jobs when stopping"
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
     parser.add_argument(
         "--completion",
@@ -125,9 +128,9 @@ def run() -> None:
         logger.setLevel(logging.DEBUG)
 
     config = load_config(args)
-
-    nomad = NomadClient(config, args.dry_run, args.detach)
+    nomad = NomadClient(config, args.dry_run, args.detach, args.purge)
     registrar = JobRegistrar(config)
+
     all_jobs = registrar.find_jobs()
     if not all_jobs:
         logger.warning("No jobs found")
