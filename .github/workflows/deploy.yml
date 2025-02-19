@@ -2,10 +2,8 @@ name: Deploy package
 
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [deploy]
-  # release:
-  #   types: [published]
+  release:
+    types: [published]
 
 jobs:
   publish-test-pypi:
