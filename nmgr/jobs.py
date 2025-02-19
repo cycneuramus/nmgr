@@ -46,11 +46,12 @@ class JobRegistrar:
                 logger.debug(f"Skipping: {path}")
                 continue
 
-            for spec_path in path.glob("*.hcl"):
-                try:
-                    jobs.append(self._register_job(spec_path))
-                except ValueError as e:
-                    logger.warning(f"Failed to load {spec_path}: {e}")
+            for pattern in ["*.hcl", "*.nomad"]:
+                for spec_path in path.glob(pattern):
+                    try:
+                        jobs.append(self._register_job(spec_path))
+                    except ValueError as e:
+                        logger.warning(f"Failed to load {spec_path}: {e}")
         return jobs
 
     def _register_job(self, spec_path: Path) -> NomadJob:
