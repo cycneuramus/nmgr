@@ -84,6 +84,15 @@ def generate_completion() -> None:
     logger.info(f"Bash completion script installed at {script_path}")
 
 
+def load_config(args: argparse.Namespace) -> Config:
+    try:
+        config = Config.from_toml(args.config)
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+        raise
+    return config
+
+
 def run() -> None:
     actions = list(Action._registry.keys())
     targets = list(Target._registry.keys())
@@ -96,7 +105,10 @@ def run() -> None:
         return
 
     if args.list_targets:
-        print("\n".join(targets))
+        config = load_config(args)
+        custom_targets = list(config.filters.keys())
+        all_targets = targets + custom_targets
+        print("\n".join(all_targets))
         return
 
     if args.list_options:
@@ -112,11 +124,7 @@ def run() -> None:
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    try:
-        config = Config.from_toml(args.config)
-    except Exception as e:
-        logger.error(f"Failed to load config: {e}")
-        exit(1)
+    config = load_config(args)
 
     nomad = NomadClient(config, args.dry_run, args.detach)
     registrar = JobRegistrar(config)
