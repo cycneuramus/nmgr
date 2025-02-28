@@ -2,7 +2,7 @@
 
 `nmgr` is a utility program for managing jobs in a Nomad cluster according to certain specific needs and preferences of mine. For a basic orientation in what it does and why it does it, see [Rationale](https://github.com/cycneuramus/nmgr#rationale). The type of jobs it is designed to operate on can be gleaned from my [homelab repository](https://github.com/cycneuramus/homelab).
 
-This started as a set of Bash convenience functions which, in time, slowly but surely [threatened](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
+It started as a set of Bash convenience functions which, in time, slowly but surely [threatened](https://github.com/cycneuramus/nmgr/blob/bash-legacy/nmgr) to evolve into an unmaintainable monstrosity. This Python rewrite, consequently, represents a more or less desperate attempt to tame the beast before it would be too late—or perhaps more accurately, a way of trading one set of complexities for another that nevertheless feels a bit more structured and robustly extensible. In any case, it's fun sometimes to seek out a dubious break from the purity of UNIX pipes to get tangled up in some overengineered OOP for a bit instead. Misery needs variety if it is to be enjoyable.
 
 ## Installation
 
@@ -90,7 +90,7 @@ Consider the following use-cases:
 
 ---
 
-+ At random parts of the day, your heart will sink when you suddenly remember you probably still have some jobs running with a `latest` image tag. After some time, you have had enough of these crises of conscience, so you roll up your sleeves, `ssh` into the server, and–what's that? You were going to hunt down all those image specifications *manually*? Don't be silly:
++ At random parts of the day, your heart will sink when you suddenly remember you probably still have some jobs running with a `latest` image tag. After some time, you have had enough of these crises of conscience, so you roll up your sleeves, `ssh` into the server, and–what's that? You were going to go look for all those image specifications manually? Don't be silly:
 
     `nmgr find :latest`
 
