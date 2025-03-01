@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Callable, Type
 
 from nmgr.config import Config
 from nmgr.jobs import NomadJob
@@ -13,7 +14,9 @@ class Target(ABC):
     _registry: dict[str, type[Target]] = {}
 
     @classmethod
-    def register(cls, target: str):
+    def register(cls, target: str) -> Callable[[Type[Target]], Type[Target]]:
+        """Decorator to register a subclass as corresponding to a specific target"""
+
         def decorator(subcls: type[Target]) -> type[Target]:
             cls._registry[target] = subcls
             return subcls
@@ -22,6 +25,8 @@ class Target(ABC):
 
     @classmethod
     def get(cls, target: str, config: Config) -> Target:
+        """Constructs a Target instance registred to handle a specific target"""
+
         # 1) Built-in target?
         if target in cls._registry:
             logger.debug(f"Target '{target}' matches built-in filter")

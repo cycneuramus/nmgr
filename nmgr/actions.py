@@ -20,6 +20,8 @@ class Action(ABC):
 
     @classmethod
     def register(cls, action: str) -> Callable[[type[Action]], type[Action]]:
+        """Decorator to register a subclass as handling a specific action"""
+
         def decorator(subcls: type[Action]) -> type[Action]:
             cls._registry[action] = subcls
             return subcls
@@ -28,6 +30,8 @@ class Action(ABC):
 
     @classmethod
     def get(cls, action: str, nomad: NomadClient, config: Config) -> Action:
+        """Construct an Action instance registred to handle action_name"""
+
         try:
             handler_cls = cls._registry[action]
         except KeyError:

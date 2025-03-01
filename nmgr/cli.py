@@ -103,6 +103,7 @@ def run() -> None:
     parser = create_parser(actions, targets)
     args = parser.parse_args()
 
+    # Short-circuits for hidden bash completion flags
     if args.list_actions:
         print("\n".join(actions))
         return
@@ -137,7 +138,7 @@ def run() -> None:
         return
 
     if args.action == "find":
-        # 'find' action: interpret target as a substring to search in job specs only
+        # interpret target as a substring to search in job specs only
         target = ContentTarget(
             keywords=[args.target],
             extended_search=False,
