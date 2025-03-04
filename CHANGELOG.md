@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/cycneuramus/nmgr/compare/v0.2.0...v0.3.0) (2025-03-04)
+
+
+### Features
+
+* Add exec command ([c27d9f3](https://github.com/cycneuramus/nmgr/commit/c27d9f36e1e7b93e485e125b55d075e421fbb21b))
+* Up command updates job if spec changed ([a24de7b](https://github.com/cycneuramus/nmgr/commit/a24de7bafb1c584d9e147273a6227063a3174958))
+
+
+### Documentation
+
+* Add some docstrings and tweak comments ([a8ff487](https://github.com/cycneuramus/nmgr/commit/a8ff4870237dfa0f97b9c7181d349eb68e6c5f0d))
+* Clarify custom filter matching ([acd6275](https://github.com/cycneuramus/nmgr/commit/acd6275aaeb76f6830501c5ba94b06da888a5351))
+* Update README ([538e0d6](https://github.com/cycneuramus/nmgr/commit/538e0d63bdbb024a30a35a98310b74b14df282c1))
+
 ## [0.2.0](https://github.com/cycneuramus/nmgr/compare/v0.1.1...v0.2.0) (2025-02-19)
 
 
