@@ -1,39 +1,28 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Optional
 
 from nmgr.config import Config
 from nmgr.jobs import NomadJob
 from nmgr.log import logger
 from nmgr.nomad import NomadClient
+from nmgr.registry import RegistryMixin
 
 
-class Action(ABC):
-    """Abstract base class for handling user-requested actions on Nomad jobs"""
-
-    _registry: dict[str, type[Action]] = {}
+class Action(ABC, RegistryMixin["Action"]):
+    """Abstract base class for actions with registry support"""
 
     def __init__(self, nomad: NomadClient, config: Config) -> None:
         self.nomad = nomad
         self.config = config
 
     @classmethod
-    def register(cls, action: str) -> Callable[[type[Action]], type[Action]]:
-        """Decorator to register a subclass as handling a specific action"""
-
-        def decorator(subcls: type[Action]) -> type[Action]:
-            cls._registry[action] = subcls
-            return subcls
-
-        return decorator
-
-    @classmethod
     def get(cls, action: str, nomad: NomadClient, config: Config) -> Action:
-        """Construct an Action instance registred to handle action_name"""
+        """Construct Action instance using registry"""
 
         try:
-            handler_cls = cls._registry[action]
+            handler_cls = cls.get_subclass(action)
         except KeyError:
             raise ValueError(f"Unknown action: {action}")
         return handler_cls(nomad, config)

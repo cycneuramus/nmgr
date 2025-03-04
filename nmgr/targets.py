@@ -1,36 +1,24 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Type
 
 from nmgr.config import Config
 from nmgr.jobs import NomadJob
 from nmgr.log import logger
+from nmgr.registry import RegistryMixin
 
 
-class Target(ABC):
-    """Abstract base class for filtering Nomad jobs by user-requested target"""
-
-    _registry: dict[str, type[Target]] = {}
-
-    @classmethod
-    def register(cls, target: str) -> Callable[[Type[Target]], Type[Target]]:
-        """Decorator to register a subclass as corresponding to a specific target"""
-
-        def decorator(subcls: type[Target]) -> type[Target]:
-            cls._registry[target] = subcls
-            return subcls
-
-        return decorator
+class Target(ABC, RegistryMixin["Target"]):
+    """Abstract base class for targets with registry support"""
 
     @classmethod
     def get(cls, target: str, config: Config) -> Target:
         """Constructs a Target instance registred to handle a specific target"""
 
         # 1) Built-in target?
-        if target in cls._registry:
+        if target in cls.get_registry_keys():
             logger.debug(f"Target '{target}' matches built-in filter")
-            return cls._registry[target]()
+            return cls.get_subclass(target)()
 
         # 2) Config-defined target?
         if target in config.filters:

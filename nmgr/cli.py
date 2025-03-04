@@ -97,8 +97,8 @@ def load_config(args: argparse.Namespace) -> Config:
 
 
 def run() -> None:
-    actions = list(Action._registry.keys())
-    targets = list(Target._registry.keys())
+    actions = Action.get_registry_keys()
+    targets = Target.get_registry_keys()
 
     parser = create_parser(actions, targets)
     args = parser.parse_args()
