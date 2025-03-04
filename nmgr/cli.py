@@ -124,6 +124,7 @@ def run() -> None:
 
     if args.completion:
         generate_completion()
+        return
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
