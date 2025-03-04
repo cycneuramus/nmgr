@@ -50,8 +50,7 @@ class UpAction(Action):
     def handle(self, jobs: list[NomadJob]) -> None:
         for job in jobs:
             if self.nomad.is_running(job.name):
-                logger.debug(f"Job {job.name} is already running; skipping")
-                continue
+                logger.debug(f"Job {job.name} is already running")
 
             logger.debug(f"Bringing job UP: {job.name}")
             self.nomad.run_job(job)
