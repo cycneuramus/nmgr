@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Callable, Optional
 
 from nmgr.config import Config
 from nmgr.jobs import NomadJob
@@ -37,6 +37,29 @@ class Action(ABC):
         except KeyError:
             raise ValueError(f"Unknown action: {action}")
         return handler_cls(nomad, config)
+
+    def select_task(self, job: NomadJob) -> Optional[str]:
+        tasks = self.nomad._extract_tasks(job.name)
+        if not tasks:
+            logger.error(f"No tasks found for job {job.name}")
+            return None
+
+        if len(tasks) == 1:
+            return tasks[0]
+
+        print(f"Tasks for job {job.name}:")
+        for i, task in enumerate(tasks, start=1):
+            print(f"{i}. {task}")
+
+        while True:
+            try:
+                choice = int(input("Select a task (number): "))
+                if 1 <= choice <= len(tasks):
+                    return tasks[choice - 1]
+                else:
+                    print("Invalid choice. Please enter a valid number.")
+            except ValueError:
+                print("Please enter a number.")
 
     @abstractmethod
     def handle(self, jobs: list[NomadJob]) -> None:
@@ -99,26 +122,28 @@ class LogsAction(Action):
         if len(jobs) > 1:
             logger.error("Logs cannot be shown for more than one job at a time")
             return
+        job = jobs[0]
+        task = self.select_task(job)
+        if not task:
+            return
+        self.nomad.tail_logs(task_name=task, job_name=job.name)
+
+
+@Action.register("exec")
+class ExecAction(Action):
+    """Executes a command in a given task in a job"""
+
+    def handle(self, jobs: list[NomadJob]) -> None:
+        if len(jobs) > 1:
+            logger.error("Exec cannot be run for more than one job at a time")
+            return
 
         job = jobs[0]
-        tasks = self.nomad._extract_tasks(job.name)
-
-        if len(tasks) == 1:
-            # Auto-select the only task
-            task = tasks[0]
-        else:
-            print(f"Tasks for job {job.name}:")
-            for i, opt in enumerate(tasks, start=1):
-                print(f"{i}. {opt}")
-
-            while True:
-                choice = input("\nSelect a task (number): ").strip()
-                if choice.isdigit() and 1 <= int(choice) <= len(tasks):
-                    task = tasks[int(choice) - 1]
-                    break
-                print("Invalid input; please enter a valid number")
-
-        self.nomad.tail_logs(task_name=task, job_name=job.name)
+        task = self.select_task(job)
+        if not task:
+            return
+        command = input(f"Command to execute in {task}: ")
+        self.nomad.exec(task_name=task, job_name=job.name, command=command.split())
 
 
 @Action.register("reconcile")

@@ -18,7 +18,7 @@ usage: nmgr [options] [action] [target]
 Nomad job manager
 
 positional arguments:
-  action               up, down, find, list, image, logs, reconcile
+  action               up, down, find, list, image, logs, exec, reconcile
   target               infra, services, all, a custom filter, a specific job name, or a string (for "find")
 
 options:
@@ -87,6 +87,22 @@ Consider the following use-cases:
     ```
 
     And off you go.
+
+---
+
+You find yourself wanting to break all the rules of application containers by looking to shell in and execute some command. Now what was it, `nomad alloc exec -job immich`? Apparently not: `Please specify the task`. Ah, right: `nomad alloc -job immich -task server`. What the hell? `Please specify the task` *again*? Perhaps `-task` has to precede `-job`? At this point you might feel like giving up. But fear not!
+
+```
+$ nmgr exec immich
+Tasks for job immich:
+1. server
+2. machine-learning
+3. redis
+Select a task (number): 1
+Command to execute in server: ls
+bin   get-cpus.sh   package-lock.json  resources  upload
+dist  node_modules  package.json       start.sh
+```
 
 ---
 

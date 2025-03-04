@@ -58,6 +58,19 @@ class NomadClient:
     def tail_logs(self, task_name: str, job_name: str) -> None:
         self._execute(["nomad", "logs", "-f", "-task", task_name, "-job", job_name])
 
+    def exec(self, task_name: str, job_name: str, command: list) -> None:
+        cmd = [
+            "nomad",
+            "alloc",
+            "exec",
+            "-task",
+            task_name,
+            "-job",
+            job_name,
+        ]
+        cmd.extend(command)
+        self._execute(cmd, capture_output=False)
+
     def inspect_job(self, job_name: str) -> str:
         try:
             result = self._execute(
