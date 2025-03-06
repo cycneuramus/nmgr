@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/cycneuramus/nmgr/compare/v0.3.0...v0.3.1) (2025-03-06)
+
+
+### Bug Fixes
+
+* Exit after installing completion ([73277d6](https://github.com/cycneuramus/nmgr/commit/73277d6b5e2943d7a0b23315c142e2c7f12f7d81))
+
 ## [0.3.0](https://github.com/cycneuramus/nmgr/compare/v0.2.0...v0.3.0) (2025-03-04)
 
 
