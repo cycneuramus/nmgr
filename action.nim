@@ -1,21 +1,16 @@
+import common, registry
+
 type
-  Action* = ref object of RootObj
-    name*: string
-    desc*: string
+  ActionHandler* = proc(nomad: NomadClient, cfg: Config, jobs: seq[
+      NomadJob]): void
 
-method handle*(self: Action, target: string) {.base.} = discard
+var actionRegistry* = newRegistry[ActionHandler]()
 
-var actions*: seq[Action] = @[]
+proc upHandler(nomad: NomadClient, cfg: Config, jobs: seq[NomadJob]): void =
+  echo("not implemented")
 
-# Need to use generics to specify subtype since otherwise Nim will
-# register the base Action, which only has the abstract method
-proc registerAction*[T: Action](name, desc: string): void =
-  actions.add T(
-    name: name,
-    desc: desc,
-  )
-
-proc findAction*(name: string): Action =
-  for action in actions:
-    if action.name == name:
-      return action
+registry.add(
+  actionRegistry,
+  "up",
+  upHandler
+)
