@@ -1,5 +1,12 @@
+import std/[paths, tables]
+
 # Placeholders
 type
-  NomadClient* = object
   Config* = object
-  NomadJob* = object
+    baseDir*: Path
+    ignoreDirs*: seq[Path]
+    infraJobs*: seq[string]
+    jobConfigExts*: seq[string]
+    filters*: Table[string, Table[string, string]]
+
+  NomadClient* = object

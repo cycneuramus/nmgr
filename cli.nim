@@ -4,10 +4,14 @@ import std/[
   sequtils,
   strformat,
   strutils,
+  paths
 ]
 
 import ./[
   action,
+  common,
+  jobs,
+  registry,
   target
 ]
 
@@ -75,6 +79,19 @@ proc main(
   # TODO (remove):
   echo fmt"Executing action '{action}' on target '{target}' with config: {config}"
   echo fmt"Dry run: {dry_run}, Detach: {detach}, Purge: {purge}, Verbose: {verbose}"
+
+  # Hard-code for testing TODO: remove
+  let config = Config(
+    baseDir: Path(expandTilde("~/cld")),
+    ignoreDirs: @[Path(".git"), Path(".github"), Path("_archive")],
+    jobConfigExts: @[".env", ".toml", ".yml", ".yaml", ".sh", ".cfg", ".js", ".tpl"]
+  )
+
+  let jobs = findJobs(config)
+
+  # TODO: incorporate target
+  let handler = registry.get(actionRegistry, action)
+  handler(NomadClient(), config, jobs)
 
 when isMainModule:
   dispatch(main,
