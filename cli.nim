@@ -1,13 +1,19 @@
-import cligen
-import os
-import tables
-import sequtils
-import action
-import target
-import strformat
-import strutils
+import std/[
+  os,
+  tables,
+  sequtils,
+  strformat,
+  strutils,
+]
 
-const configPath = block:
+import ./[
+  action,
+  target
+]
+
+import pkg/cligen
+
+let configPath = block:
   let configDir = getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config")
   configDir / "nmgr" / "config.toml"
 

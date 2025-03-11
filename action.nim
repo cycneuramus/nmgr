@@ -1,4 +1,4 @@
-import common, registry
+import ./[common, registry]
 
 type
   ActionHandler* = proc(nomad: NomadClient, cfg: Config, jobs: seq[

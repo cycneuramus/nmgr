@@ -1,6 +1,6 @@
 ## Provides a registry type that takes a string key and a generic value
 
-import tables, strformat
+import std/[tables, strformat]
 
 type
   Registry*[T] = Table[string, T]

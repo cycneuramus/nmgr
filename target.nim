@@ -1,4 +1,4 @@
-import common, registry
+import ./[common, registry]
 
 type
   TargetFilter* = proc(jobs: seq[NomadJob], cfg: Config): seq[NomadJob]
