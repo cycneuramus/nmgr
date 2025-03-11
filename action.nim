@@ -14,3 +14,13 @@ registry.add(
   "up",
   upHandler
 )
+
+proc listHandler(nomad: NomadClient, cfg: Config, jobs: seq[NomadJob]): void =
+  for job in jobs:
+    echo job.name
+
+registry.add(
+  actionRegistry,
+  "list",
+  listHandler
+)
