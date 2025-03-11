@@ -84,14 +84,16 @@ proc main(
   let config = Config(
     baseDir: Path(expandTilde("~/cld")),
     ignoreDirs: @[Path(".git"), Path(".github"), Path("_archive")],
+    infraJobs: @["garage", "keydb", "haproxy", "caddy", "patroni"],
     jobConfigExts: @[".env", ".toml", ".yml", ".yaml", ".sh", ".cfg", ".js", ".tpl"]
   )
 
-  let jobs = findJobs(config)
-
-  # TODO: incorporate target
+  let allJobs = findJobs(config)
+  let filter = registry.get(targetRegistry, target)
+  let filteredJobs = filter(allJobs, config)
   let handler = registry.get(actionRegistry, action)
-  handler(NomadClient(), config, jobs)
+
+  handler(NomadClient(), config, filteredJobs)
 
 when isMainModule:
   dispatch(main,
