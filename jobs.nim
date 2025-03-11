@@ -25,7 +25,7 @@ proc getJobName(specPath: string): string =
 
   for line in lines(specPath):
     if find(line, pattern, match):
-      return line[match.boundaries]
+      return line[match.group(0)]
 
 proc findConfigs(jobDir: Path, configExts: seq[string]): seq[Path] =
   ## Finds configuration files in job directory
