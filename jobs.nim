@@ -51,7 +51,7 @@ proc findConfigs(jobDir: Path, configExts: seq[string]): seq[Path] =
 proc findJobs*(config: Config): seq[NomadJob] =
   # Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
-    warn fmt"Base directory not found: {config.baseDir}"
+    warn fmt"Base directory not found: {config.baseDir.string}"
     return
 
   for (kind, path) in walkDir(config.baseDir):
@@ -64,7 +64,7 @@ proc findJobs*(config: Config): seq[NomadJob] =
 
       let name = getJobName(path.string)
       if name == "":
-        warn fmt"Could not extract job name from {path}"
+        warn fmt"Could not extract job name from {path.string}"
 
       let configDir = parentDir(path)
       let configPaths = findConfigs(configDir, config.jobConfigExts)
