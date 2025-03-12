@@ -6,6 +6,10 @@ type
 
 var targetRegistry* = newRegistry[TargetFilter]()
 
+proc filter*(target: string, jobs: seq[NomadJob], config: Config): seq[NomadJob] =
+  let filter = targetRegistry.get(target)
+  jobs.filter(config)
+
 proc infraFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
   ## Filters on infrastructure jobs, respecting their order in config
   for infraJobName in config.infraJobs:

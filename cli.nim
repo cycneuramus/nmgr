@@ -11,7 +11,6 @@ import ./[
   action,
   common,
   jobs,
-  registry,
   target
 ]
 
@@ -89,11 +88,8 @@ proc main(
   )
 
   let allJobs = findJobs(config)
-  let filter = registry.get(targetRegistry, target)
-  let filteredJobs = filter(allJobs, config)
-  let handler = registry.get(actionRegistry, action)
-
-  handler(NomadClient(), config, filteredJobs)
+  let filteredJobs = target.filter(allJobs, config)
+  action.handle(NomadClient(), config, filteredJobs)
 
 when isMainModule:
   dispatch(main,
