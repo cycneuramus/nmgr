@@ -1,23 +1,23 @@
 import std/[
+  logging,
   os,
-  tables,
   strformat,
   strutils,
-  paths
 ]
 
 import ./[
   action,
   common,
+  config,
   jobs,
   target
 ]
 
 import pkg/cligen
 
-let configPath = block:
+let defaultConfigPath = block:
   let configDir = getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config")
-  configDir / "nmgr" / "config.toml"
+  configDir / "nmgr" / "config"
 
 # TODO:
 # let actionHelp = "Available actions: " & toSeq(actionRegistry.keys).join(", ")
@@ -28,7 +28,7 @@ proc main(
   # TODO: explicit positional args
   args: seq[string],
   # TODO: verbose default text
-  config: string = configPath,
+  config: string = defaultConfigPath,
   dry_run: bool = false,
   detach: bool = false,
   purge: bool = false,
@@ -69,30 +69,20 @@ proc main(
     try:
       parseEnum[Action](args[0])
     except ValueError:
-      echo fmt"Unknown action '{args[0]}'"
+      error fmt"Unknown action '{args[0]}'"
       quit(1)
 
   let target =
     try:
       parseEnum[Target](args[1])
     except ValueError:
-      echo fmt"Unknown target '{args[1]}'"
+      error fmt"Unknown target '{args[1]}'"
       quit(1)
 
-  # TODO (remove):
-  echo fmt"Executing action '{action}' on target '{target}' with config: {config}"
-  echo fmt"Dry run: {dry_run}, Detach: {detach}, Purge: {purge}, Verbose: {verbose}"
-
-  # Hard-code for testing TODO: remove
-  let config = Config(
-    baseDir: Path(expandTilde("~/cld")),
-    ignoreDirs: @[Path(".git"), Path(".github"), Path("_archive")],
-    infraJobs: @["garage", "keydb", "haproxy", "caddy", "patroni"],
-    jobConfigExts: @[".env", ".toml", ".yml", ".yaml", ".sh", ".cfg", ".js", ".tpl"]
-  )
-
+  let config = config.parse
   let allJobs = findJobs(config)
   let filteredJobs = target.filter(allJobs, config)
+
   action.handle(filteredJobs, NomadClient(), config)
 
 when isMainModule:

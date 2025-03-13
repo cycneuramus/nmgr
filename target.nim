@@ -1,5 +1,5 @@
 import std/algorithm
-import ./[common, jobs]
+import ./[config, jobs]
 
 type
   TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
@@ -23,7 +23,7 @@ proc servicesFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
   result = result.sortedByIt(it.name)
 
 proc allFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
-  # Filters on all (both infra and service) jobs, ordering infra jobs first
+  ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result = infraFilter(jobs, config) & servicesFilter(jobs, config)
 
 # TODO: for later use
@@ -39,5 +39,6 @@ proc filter*(target: Target, jobs: seq[NomadJob], config: Config): seq[NomadJob]
     of Target.Infra: infraFilter
     of Target.Services: servicesFilter
     of Target.All: allFilter
+    # else: nameFilter
 
   jobs.filter(config)

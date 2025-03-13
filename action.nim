@@ -1,6 +1,6 @@
-import ./[common, jobs]
+import ./[common, config, jobs]
 
-type 
+type
   ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config)
   Action* = enum
     Up = "up",

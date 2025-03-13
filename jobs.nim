@@ -7,7 +7,7 @@ import std/[
   logging,
 ]
 
-import ./common
+import ./config
 import pkg/regex
 
 const specExts = [".hcl", ".nomad"]
