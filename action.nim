@@ -1,31 +1,28 @@
-import ./[common, registry, jobs]
+import ./[common, jobs]
 
-type
-  ActionHandler* = proc(nomad: NomadClient, cfg: Config, jobs: seq[
-      NomadJob]): void
+type 
+  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config)
+  Action* = enum
+    Up = "up",
+    # Down = "Down",
+    # Find = "find",
+    List = "list",
+    # Image = "image",
+    # Logs = "logs",
+    # Reconcile = "reconcile"
 
-var actionRegistry* = newRegistry[ActionHandler]()
+proc upHandler(jobs: seq[NomadJob], nomad: NomadClient, cfg: Config): void =
+  echo "not implemented"
 
-proc handle*(action: string, nomad: NomadClient, config: Config, jobs: seq[
-    NomadJob]): void =
-  let handler = actionRegistry.get(action)
-  handler(nomad, config, jobs)
-
-proc upHandler(nomad: NomadClient, cfg: Config, jobs: seq[NomadJob]): void =
-  echo("not implemented")
-
-registry.add(
-  actionRegistry,
-  "up",
-  upHandler
-)
-
-proc listHandler(nomad: NomadClient, cfg: Config, jobs: seq[NomadJob]): void =
+proc listHandler(jobs: seq[NomadJob], nomad: NomadClient, cfg: Config): void =
   for job in jobs:
     echo job.name
 
-registry.add(
-  actionRegistry,
-  "list",
-  listHandler
-)
+proc handle*(action: Action, jobs: seq[NomadJob], nomad: NomadClient,
+    config: Config): void =
+  let handle: ActionHandler =
+    case action
+    of Action.Up: upHandler
+    of Action.List: listHandler
+
+  jobs.handle(nomad, config)

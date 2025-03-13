@@ -1,7 +1,6 @@
 import std/[
   os,
   tables,
-  sequtils,
   strformat,
   strutils,
   paths
@@ -53,10 +52,10 @@ proc main(
     quit(0)
 
   if list_actions:
-    echo toSeq(actionRegistry.keys).join("\n")
+    for a in Action: echo a
     quit(0)
   if list_targets:
-    echo toSeq(targetRegistry.keys).join("\n")
+    for t in Target: echo t
     quit(0)
   if list_options:
     # TODO:
@@ -66,14 +65,19 @@ proc main(
   if args.len < 2:
     raise newException(HelpError, "Too few arguments.\n\n${HELP}")
 
-  let action = args[0]
-  if action != "" and not actionRegistry.hasKey(action):
-    echo fmt"Unknown action '{action}'"
-    quit(1)
-  let target = args[1]
-  if target != "" and not targetRegistry.hasKey(target):
-    echo fmt"Unknown target '{target}'"
-    quit(1)
+  let action =
+    try:
+      parseEnum[Action](args[0])
+    except ValueError:
+      echo fmt"Unknown action '{args[0]}'"
+      quit(1)
+
+  let target =
+    try:
+      parseEnum[Target](args[1])
+    except ValueError:
+      echo fmt"Unknown target '{args[1]}'"
+      quit(1)
 
   # TODO (remove):
   echo fmt"Executing action '{action}' on target '{target}' with config: {config}"
@@ -89,7 +93,7 @@ proc main(
 
   let allJobs = findJobs(config)
   let filteredJobs = target.filter(allJobs, config)
-  action.handle(NomadClient(), config, filteredJobs)
+  action.handle(filteredJobs, NomadClient(), config)
 
 when isMainModule:
   dispatch(main,
@@ -102,6 +106,9 @@ when isMainModule:
       "verbose": "show detailed output",
       "completion": "install Bash completion script and exit",
       "version": "show program version and exit",
+      "list_actions": "CLIGEN-NOHELP",
+      "list_targets": "CLIGEN-NOHELP",
+      "list_options": "CLIGEN-NOHELP",
     },
     short = {
       "config": 'c',
@@ -111,6 +118,8 @@ when isMainModule:
       "verbose": 'v',
       "completion": '\0',
       "version": '\0',
+      "list_actions": '\0',
+      "list_targets": '\0',
+      "list_options": '\0',
     },
-    suppress = @["list_actions", "list_targets", "list_options"]
   )
