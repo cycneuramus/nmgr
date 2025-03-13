@@ -1,28 +1,53 @@
 import ./[common, config, jobs]
 
 type
-  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config)
   Action* = enum
     Up = "up",
-    # Down = "Down",
-    # Find = "find",
+    Down = "down",
+    Find = "find",
     List = "list",
-    # Image = "image",
-    # Logs = "logs",
-    # Reconcile = "reconcile"
+    Image = "image",
+    Logs = "logs",
+    Reconcile = "reconcile"
 
-proc upHandler(jobs: seq[NomadJob], nomad: NomadClient, cfg: Config): void =
+template define(name: untyped, body: untyped) =
+  ## Reduces boilerplate by centralizing the function signature of action handlers
+  proc name(jobs {.inject.}: seq[NomadJob], nomad {.inject.}: NomadClient,
+      cfg {.inject.}: Config): void =
+    body
+
+define(upHandler):
   echo "not implemented"
 
-proc listHandler(jobs: seq[NomadJob], nomad: NomadClient, cfg: Config): void =
+define(downHandler):
+  echo "not implemented"
+
+define(findHandler):
+  echo "not implemented"
+
+define(listHandler):
   for job in jobs:
     echo job.name
 
+define(imageHandler):
+  echo "not implemented"
+
+define(logsHandler):
+  echo "not implemented"
+
+define(reconcileHandler):
+  echo "not implemented"
+
 proc handle*(action: Action, jobs: seq[NomadJob], nomad: NomadClient,
     config: Config): void =
-  let handle: ActionHandler =
+  let handle =
     case action
     of Action.Up: upHandler
+    of Action.Down: downHandler
+    of Action.Find: findHandler
     of Action.List: listHandler
+    of Action.Image: imageHandler
+    of Action.Logs: logsHandler
+    of Action.Reconcile: reconcileHandler
 
   jobs.handle(nomad, config)

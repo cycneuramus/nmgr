@@ -2,27 +2,31 @@ import std/algorithm
 import ./[config, jobs]
 
 type
-  TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
   Target* = enum
     Infra = "infra",
     Services = "services",
     All = "all",
 
-proc infraFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
+template define(name: untyped, body: untyped) =
+  ## Reduces boilerplate by centralizing the function signature of target filters
+  proc name(jobs {.inject.}: seq[NomadJob], config {.inject.}: Config): seq[NomadJob] =
+    body
+
+define(infraFilter):
   ## Filters on infrastructure jobs, respecting their order in config
   for infraJobName in config.infraJobs:
     for job in jobs:
       if job.name == infraJobName:
         result.add(job)
 
-proc servicesFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
+define(servicesFilter):
   ## Filters on service (non-infrastructure) jobs
   for job in jobs:
     if job.name notin config.infraJobs:
       result.add(job)
   result = result.sortedByIt(it.name)
 
-proc allFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
+define(allFilter):
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result = infraFilter(jobs, config) & servicesFilter(jobs, config)
 
@@ -34,7 +38,7 @@ proc allFilter(jobs: seq[NomadJob], config: Config): seq[NomadJob] =
 #       result.add(job)
 
 proc filter*(target: Target, jobs: seq[NomadJob], config: Config): seq[NomadJob] =
-  let filter: TargetFilter =
+  let filter =
     case target
     of Target.Infra: infraFilter
     of Target.Services: servicesFilter
