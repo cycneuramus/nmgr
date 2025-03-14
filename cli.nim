@@ -1,18 +1,5 @@
-import std/[
-  logging,
-  os,
-  strformat,
-  strutils,
-]
-
-import ./[
-  action,
-  common,
-  config,
-  jobs,
-  target
-]
-
+import std/[os, strutils]
+import ./[action, common, config, jobs, target]
 import pkg/cligen
 
 let defaultConfigPath = block:
@@ -45,7 +32,6 @@ proc main(
     # TODO:
     echo "not implemented"
     quit(0)
-
   if completion:
     # TODO:
     echo "not implemented"
@@ -63,27 +49,14 @@ proc main(
     quit(0)
 
   if args.len < 2:
-    raise newException(HelpError, "Too few arguments.\n\n${HELP}")
+    raise newException(HelpError, "Not enough arguments.\n\n${HELP}")
 
-  let action =
-    try:
-      parseEnum[Action](args[0])
-    except ValueError:
-      error fmt"Unknown action '{args[0]}'"
-      quit(1)
-
-  let target =
-    try:
-      parseEnum[Target](args[1])
-    except ValueError:
-      error fmt"Unknown target '{args[1]}'"
-      quit(1)
-
+  let action = args[0]
+  let target = args[1]
   let config = config.parse
-  let allJobs = findJobs(config)
-  let filteredJobs = target.filter(allJobs, config)
+  let jobs = target.filter(config)
 
-  action.handle(filteredJobs, NomadClient(), config)
+  action.handle(jobs, NomadClient(), config)
 
 when isMainModule:
   dispatch(main,

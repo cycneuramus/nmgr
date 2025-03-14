@@ -1,3 +1,4 @@
+import std/[logging, strformat, strutils]
 import ./[common, config, jobs]
 
 type
@@ -38,8 +39,16 @@ define(logsHandler):
 define(reconcileHandler):
   echo "not implemented"
 
-proc handle*(action: Action, jobs: seq[NomadJob], nomad: NomadClient,
+proc handle*(action: string, jobs: seq[NomadJob], nomad: NomadClient,
     config: Config): void =
+  let action =
+    try:
+      parseEnum[Action](action)
+    except ValueError:
+      # TODO: bubble up
+      error fmt"Unknown action '{action}'"
+      quit(1)
+
   let handle =
     case action
     of Action.Up: upHandler

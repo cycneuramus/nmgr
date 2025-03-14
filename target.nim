@@ -1,5 +1,6 @@
-import std/algorithm
+import std/[algorithm, tables, sequtils, strutils]
 import ./[config, jobs]
+# import pkg/regex
 
 type
   Target* = enum
@@ -8,41 +9,57 @@ type
     All = "all",
 
 template define(name: untyped, body: untyped) =
-  ## Reduces boilerplate by centralizing the function signature of target filters
-  proc name(jobs {.inject.}: seq[NomadJob], config {.inject.}: Config): seq[NomadJob] =
+  ## Centralizes the function signature of target filters
+  # TODO: the target param is only used for non-built-in filters
+  proc name(jobs {.inject.}: seq[NomadJob], target {.inject.}: string,
+      config {.inject.}: Config): seq[NomadJob] =
     body
 
 define(infraFilter):
-  ## Filters on infrastructure jobs, respecting their order in config
+  ## Filters on infrastructure jobs, ordering them as in the config
   for infraJobName in config.infraJobs:
     for job in jobs:
       if job.name == infraJobName:
         result.add(job)
 
 define(servicesFilter):
-  ## Filters on service (non-infrastructure) jobs
-  for job in jobs:
-    if job.name notin config.infraJobs:
-      result.add(job)
-  result = result.sortedByIt(it.name)
+  ## Filters on service (non-infra) jobs, ordering them alphabetically
+  result = jobs
+    .filterIt(it.name notin config.infraJobs)
+    .sortedByIt(it.name)
 
 define(allFilter):
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
-  result = infraFilter(jobs, config) & servicesFilter(jobs, config)
+  result =
+    infraFilter(jobs, target, config) & servicesFilter(jobs, target, config)
 
-# TODO: for later use
-# proc nameFilter(jobs: seq[NomadJob], config: Config, name: string): seq[NomadJob] =
-#   # Fallback that filters on a single specific job by name
-#   for job in jobs:
-#     if job.name == name:
-#       result.add(job)
+define(configFilter):
+  ## Filters on jobs matching config-defined regex patterns
+  discard
+  # let filterOpts = config.filters.getOrDefault(name)
+  # if "pattern" in filterOpts:
+  #   let pattern = re2(filterOpts["pattern"])
+  #   var match = RegexMatch2()
+  # TODO: readSpec etc.
 
-proc filter*(target: Target, jobs: seq[NomadJob], config: Config): seq[NomadJob] =
-  let filter =
-    case target
-    of Target.Infra: infraFilter
-    of Target.Services: servicesFilter
-    of Target.All: allFilter
-    # else: nameFilter
+define(nameFilter):
+  ## Filters on jobs matching the target job name
+  result = jobs.filterIt(it.name == target)
 
-  jobs.filter(config)
+proc filter*(target: string, config: Config): seq[NomadJob] =
+  ## Returns filtered jobs according to user-input target
+  let jobs = findJobs(config)
+  # TODO: enums with special cases does not feel like brilliant design
+  let filter = block:
+    try:
+      case parseEnum[Target](target)
+      of Target.Infra: infraFilter
+      of Target.Services: servicesFilter
+      of Target.All: allFilter
+    except ValueError:
+      if config.filters.hasKey(target):
+        configFilter
+      else:
+        nameFilter
+
+  jobs.filter(target, config)
