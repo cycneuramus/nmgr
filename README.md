@@ -90,19 +90,19 @@ Consider the following use-cases:
 
 ---
 
-You find yourself wanting to break all the rules of application containers by looking to shell in and execute some command. Now what was it, `nomad alloc exec -job immich`? Apparently not: `Please specify the task`. Ah, right: `nomad alloc -job immich -task server`. What the hell? `Please specify the task` *again*? Perhaps `-task` has to precede `-job`? At this point you might feel like giving up. But fear not!
++ You find yourself wanting to break all the rules of application containers by looking to shell in and execute some command. Now what was it, `nomad alloc exec -job immich`? Apparently not: `Please specify the task`. Ah, right: `nomad alloc -job immich -task server`. What the hell? `Please specify the task` *again*? Perhaps `-task` has to precede `-job`? At this point you might feel like giving up. But fear not!
 
-```
-$ nmgr exec immich
-Tasks for job immich:
-1. server
-2. machine-learning
-3. redis
-Select a task (number): 1
-Command to execute in server: ls
-bin   get-cpus.sh   package-lock.json  resources  upload
-dist  node_modules  package.json       start.sh
-```
+    ```
+    $ nmgr exec immich
+    Tasks for job immich:
+    1. server
+    2. machine-learning
+    3. redis
+    Select a task (number): 1
+    Command to execute in server: ls
+    bin   get-cpus.sh   package-lock.json  resources  upload
+    dist  node_modules  package.json       start.sh
+    ```
 
 ---
 
