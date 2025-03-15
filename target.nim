@@ -8,32 +8,37 @@ type
     Services = "services",
     All = "all",
 
-template define(name: untyped, body: untyped) =
-  ## Centralizes the function signature of target filters
-  # TODO: the target param is only used for non-built-in filters
+template funcF(name: untyped, body: untyped) =
+  ## Centralizes the function signature of target filter funcs
+  func name(jobs {.inject.}: seq[NomadJob], target {.inject.}: string,
+      config {.inject.}: Config): seq[NomadJob] =
+    body
+
+template procF(name: untyped, body: untyped) =
+  ## Centralizes the function signature of target filter procs
   proc name(jobs {.inject.}: seq[NomadJob], target {.inject.}: string,
       config {.inject.}: Config): seq[NomadJob] =
     body
 
-define(infraFilter):
-  ## Filters on infrastructure jobs, ordering them as in the config
+funcF(infraFilter):
+  ## Filters on infrastructure jobs, ordering them as in config
   for infraJobName in config.infraJobs:
-    for job in jobs:
-      if job.name == infraJobName:
-        result.add(job)
+    result.add(
+      jobs.filterIt(it.name == infraJobName)
+    )
 
-define(servicesFilter):
+funcF(servicesFilter):
   ## Filters on service (non-infra) jobs, ordering them alphabetically
   result = jobs
     .filterIt(it.name notin config.infraJobs)
     .sortedByIt(it.name)
 
-define(allFilter):
+funcF(allFilter):
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result =
     jobs.infraFilter(target, config) & jobs.servicesFilter(target, config)
 
-define(configFilter):
+procF(configFilter):
   ## Filters on jobs matching config-defined regex patterns
   discard
   # let filterOpts = config.filters.getOrDefault(name)
@@ -42,7 +47,7 @@ define(configFilter):
   #   var match = RegexMatch2()
   # TODO: readSpec etc.
 
-define(nameFilter):
+funcF(nameFilter):
   ## Filters on jobs matching the target job name
   result = jobs.filterIt(it.name == target)
 
