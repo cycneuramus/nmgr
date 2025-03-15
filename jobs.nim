@@ -1,12 +1,6 @@
 ## Represents and operates on Nomad jobs
 
-import std/[
-  paths,
-  dirs,
-  strformat,
-  logging,
-]
-
+import std/[paths, dirs, strformat, logging]
 import ./config
 import pkg/regex
 
@@ -18,21 +12,19 @@ type
     specPath*: Path
     configPaths*: seq[Path]
 
-proc getJobName(specPath: string): string =
+proc getJobName(specPath: Path): string =
   ## Extracts job name from Nomad spec file by finding `job "name"` pattern
   let pattern = re2("job\\s+\"([^\"]+)\"")
   var match = RegexMatch2()
-
-  for line in lines(specPath):
+  for line in lines($specPath):
     if find(line, pattern, match):
       return line[match.group(0)]
 
 proc findConfigs(jobDir: Path, configExts: seq[string]): seq[Path] =
   ## Finds configuration files in job directory
   for (kind, path) in walkDir(jobDir):
-    if kind != pcFile or path.splitFile.ext notin configExts:
-      continue
-    result.add(path)
+    if kind == pcFile or path.splitFile.ext in configExts:
+      result.add(path)
 
 # TODO: for later use
 # proc readSpec(job: NomadJob): string =
@@ -51,7 +43,7 @@ proc findConfigs(jobDir: Path, configExts: seq[string]): seq[Path] =
 proc findJobs*(config: Config): seq[NomadJob] =
   # Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
-    warn fmt"Base directory not found: {config.baseDir.string}"
+    error fmt"Base directory not found: {config.baseDir.string}"
     return
 
   for (kind, path) in walkDir(config.baseDir):
@@ -62,7 +54,7 @@ proc findJobs*(config: Config): seq[NomadJob] =
       if kind != pcFile or path.splitFile.ext notin specExts:
         continue
 
-      let name = getJobName(path.string)
+      let name = getJobName(path)
       if name == "":
         warn fmt"Could not extract job name from {path.string}"
 
