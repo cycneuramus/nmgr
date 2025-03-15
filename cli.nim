@@ -1,5 +1,5 @@
-import std/[os, strutils]
-import ./[action, common, config, jobs, target]
+import std/[os, strutils, tables]
+import ./[action, common, config, target]
 import pkg/cligen
 
 let defaultConfigPath = block:
@@ -37,11 +37,14 @@ proc main(
     echo "not implemented"
     quit(0)
 
+  let config = config.parse
+
   if list_actions:
     for a in Action: echo a
     quit(0)
   if list_targets:
     for t in Target: echo t
+    for f in config.filters.keys: echo f
     quit(0)
   if list_options:
     # TODO:
@@ -53,7 +56,6 @@ proc main(
 
   let action = args[0]
   let target = args[1]
-  let config = config.parse
   let jobs = target.filter(config)
 
   action.handle(jobs, NomadClient(), config)
