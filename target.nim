@@ -1,12 +1,9 @@
-import std/[algorithm, tables, sequtils]
-import ./[config, jobs]
+import std/[algorithm, tables, sequtils, with]
+import ./[config, jobs, registry]
 # import pkg/regex
 
 type
-  Target* = enum
-    Infra = "infra",
-    Services = "services",
-    All = "all",
+  TargetFilter = proc(jobs: seq[NomadJob], target: string, config: Config): seq[NomadJob]
 
 template funcF(name: untyped, body: untyped) =
   ## Centralizes the function signature of target filter funcs
@@ -51,15 +48,19 @@ funcF(nameFilter):
   ## Filters on jobs matching the target job name
   result = jobs.filterIt(it.name == target)
 
-proc filter*(target: string, config: Config): seq[NomadJob] =
-  ## Returns filtered jobs according to user-input target
-  let jobs = findJobs(config)
-  # TODO: enums with special cases does not feel like brilliant design
+proc initTargetRegistry*(): Registry[TargetFilter] =
+  var registry = TargetFilter.initRegistry
+  with registry:
+    add("infra", infraFilter)
+    add("services", servicesFilter)
+    add("all", allFilter)
+  return registry
+
+proc filter*(target: string, jobs: seq[NomadJob], registry: Registry[TargetFilter],
+    config: Config): seq[NomadJob] =
   let filter = block:
-    case target
-    of $Target.Infra: infraFilter
-    of $Target.Services: servicesFilter
-    of $Target.All: allFilter
+    if registry.hasKey(target):
+      registry[target]
     elif config.filters.hasKey(target):
       configFilter
     else:

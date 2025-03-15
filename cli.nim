@@ -1,10 +1,12 @@
 import std/[os, strutils, tables]
-import ./[action, common, config, target]
+import ./[action, common, config, jobs, target]
 import pkg/cligen
 
-let defaultConfigPath = block:
-  let configDir = getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config")
-  configDir / "nmgr" / "config"
+const targetRegistry = initTargetRegistry()
+const actionRegistry = initActionRegistry()
+
+let defaultConfigPath =
+  getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
 
 # TODO:
 # let actionHelp = "Available actions: " & toSeq(actionRegistry.keys).join(", ")
@@ -40,10 +42,10 @@ proc main(
   let config = config.parse
 
   if list_actions:
-    for a in Action: echo a
+    for a in actionRegistry.keys: echo a
     quit(0)
   if list_targets:
-    for t in Target: echo t
+    for t in targetRegistry.keys: echo t
     for f in config.filters.keys: echo f
     quit(0)
   if list_options:
@@ -52,15 +54,17 @@ proc main(
     quit(0)
 
   if args.len < 2:
-    raise newException(HelpError, "Not enough arguments.\n\n${HELP}")
+    raise newException(HelpError, "Missing arguments.\n\n${HELP}")
 
   let action = args[0]
   let target = args[1]
-  let jobs = target.filter(config)
+  let allJobs = findJobs(config)
+  let filteredJobs = target.filter(allJobs, targetRegistry, config)
 
-  action.handle(jobs, NomadClient(), config)
+  action.handle(actionRegistry, filteredJobs, NomadClient(), config)
 
 when isMainModule:
+  clCfg.helpSyntax = ""
   dispatch(main,
     cmdName = "nmgr",
     help = {

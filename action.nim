@@ -1,5 +1,8 @@
-import std/[logging, strformat]
-import ./[common, config, jobs]
+import std/[logging, strformat, tables, with]
+import ./[common, config, jobs, registry]
+
+type
+  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
 
 type
   Action* = enum
@@ -14,7 +17,7 @@ type
 template define(name: untyped, body: untyped) =
   ## Centralizes the function signature of action handlers
   proc name(jobs {.inject.}: seq[NomadJob], nomad {.inject.}: NomadClient,
-      cfg {.inject.}: Config): void =
+      config {.inject.}: Config): void =
     body
 
 define(upHandler):
@@ -35,20 +38,30 @@ define(imageHandler):
 define(logsHandler):
   echo "not implemented"
 
+define(execHandler):
+  echo "not implemented"
+
 define(reconcileHandler):
   echo "not implemented"
 
-proc handle*(action: string, jobs: seq[NomadJob], nomad: NomadClient,
-    config: Config): void =
-  let handle =
-    case action
-    of $Action.Up: upHandler
-    of $Action.Down: downHandler
-    of $Action.Find: findHandler
-    of $Action.List: listHandler
-    of $Action.Image: imageHandler
-    of $Action.Logs: logsHandler
-    of $Action.Reconcile: reconcileHandler
+proc initActionRegistry*(): Registry[ActionHandler] =
+  var registry = ActionHandler.initRegistry
+  with registry:
+    add("up", upHandler)
+    add("down", downHandler)
+    add("find", findHandler)
+    add("list", listHandler)
+    add("image", imageHandler)
+    add("logs", logsHandler)
+    add("exec", execHandler)
+    add("reconcile", reconcileHandler)
+  return registry
+
+proc handle*(action: string, registry: Registry[ActionHandler], jobs: seq[NomadJob],
+    nomad: NomadClient, config: Config): void =
+  let handle = block:
+    if registry.hasKey(action):
+      registry[action]
     else:
       # TODO: bubble up
       error fmt"Unknown action '{action}'"
