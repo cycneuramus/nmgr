@@ -1,4 +1,4 @@
-import std/[logging, strformat, strutils]
+import std/[logging, strformat]
 import ./[common, config, jobs]
 
 type
@@ -12,7 +12,7 @@ type
     Reconcile = "reconcile"
 
 template define(name: untyped, body: untyped) =
-  ## Reduces boilerplate by centralizing the function signature of action handlers
+  ## Centralizes the function signature of action handlers
   proc name(jobs {.inject.}: seq[NomadJob], nomad {.inject.}: NomadClient,
       cfg {.inject.}: Config): void =
     body
@@ -27,8 +27,7 @@ define(findHandler):
   echo "not implemented"
 
 define(listHandler):
-  for job in jobs:
-    echo job.name
+  for job in jobs: echo job.name
 
 define(imageHandler):
   echo "not implemented"
@@ -41,22 +40,18 @@ define(reconcileHandler):
 
 proc handle*(action: string, jobs: seq[NomadJob], nomad: NomadClient,
     config: Config): void =
-  let action =
-    try:
-      parseEnum[Action](action)
-    except ValueError:
+  let handle =
+    case action
+    of $Action.Up: upHandler
+    of $Action.Down: downHandler
+    of $Action.Find: findHandler
+    of $Action.List: listHandler
+    of $Action.Image: imageHandler
+    of $Action.Logs: logsHandler
+    of $Action.Reconcile: reconcileHandler
+    else:
       # TODO: bubble up
       error fmt"Unknown action '{action}'"
       quit(1)
-
-  let handle =
-    case action
-    of Action.Up: upHandler
-    of Action.Down: downHandler
-    of Action.Find: findHandler
-    of Action.List: listHandler
-    of Action.Image: imageHandler
-    of Action.Logs: logsHandler
-    of Action.Reconcile: reconcileHandler
 
   jobs.handle(nomad, config)

@@ -1,4 +1,4 @@
-import std/[algorithm, tables, sequtils, strutils]
+import std/[algorithm, tables, sequtils]
 import ./[config, jobs]
 # import pkg/regex
 
@@ -31,7 +31,7 @@ define(servicesFilter):
 define(allFilter):
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result =
-    infraFilter(jobs, target, config) & servicesFilter(jobs, target, config)
+    jobs.infraFilter(target, config) & jobs.servicesFilter(target, config)
 
 define(configFilter):
   ## Filters on jobs matching config-defined regex patterns
@@ -51,15 +51,13 @@ proc filter*(target: string, config: Config): seq[NomadJob] =
   let jobs = findJobs(config)
   # TODO: enums with special cases does not feel like brilliant design
   let filter = block:
-    try:
-      case parseEnum[Target](target)
-      of Target.Infra: infraFilter
-      of Target.Services: servicesFilter
-      of Target.All: allFilter
-    except ValueError:
-      if config.filters.hasKey(target):
-        configFilter
-      else:
-        nameFilter
+    case target
+    of $Target.Infra: infraFilter
+    of $Target.Services: servicesFilter
+    of $Target.All: allFilter
+    elif config.filters.hasKey(target):
+      configFilter
+    else:
+      nameFilter
 
   jobs.filter(target, config)

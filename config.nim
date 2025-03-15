@@ -1,4 +1,4 @@
-import std/[tables, parsecfg, sequtils, strutils, paths]
+import std/[tables, parsecfg, sequtils, strutils, paths, with]
 
 type
   Config* = object
@@ -9,17 +9,21 @@ type
     filters*: Table[string, Table[string, string]]
 
 proc parse*(configPath: string): Config =
-  var cfg: Config
+  var config: Config
   let parser = loadConfig(configPath)
 
-  cfg.baseDir = parser.getSectionValue("general", "base_dir",
-      "").Path.expandTilde
-  cfg.ignoreDirs = parser.getSectionValue("general", "ignore_dirs", "").split(
-      " ").mapIt(it.Path)
-  cfg.infraJobs = parser.getSectionValue("general", "infra_jobs", "").split(" ")
-  cfg.jobConfigExts = parser.getSectionValue("general", "job_config_exts",
-      "").split(" ")
-  cfg.filters = initTable[string, Table[string, string]]()
+  with config:
+    baseDir = parser.getSectionValue("general", "base_dir", "")
+      .Path
+      .expandTilde
+    ignoreDirs = parser.getSectionValue("general", "ignore_dirs", "")
+      .split(" ")
+      .mapIt(it.Path)
+    infraJobs = parser.getSectionValue("general", "infra_jobs", "")
+      .split(" ")
+    jobConfigExts = parser.getSectionValue("general", "job_config_exts", "")
+      .split(" ")
+    filters = initTable[string, Table[string, string]]()
 
   for section in parser.sections:
     if section.startsWith("filter."):
@@ -27,6 +31,6 @@ proc parse*(configPath: string): Config =
       var opts = initTable[string, string]()
       for key, val in parser[section].pairs:
         opts[key] = val
-      cfg.filters[name] = opts
+      config.filters[name] = opts
 
-  return cfg
+  return config
