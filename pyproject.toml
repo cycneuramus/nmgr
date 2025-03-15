@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nmgr"
-version = "0.3.0"
+version = "0.3.1"
 description = "Nomad job management tool"
 license = "GPL-3.0-only"
 authors = ["cycneuramus <56681631+cycneuramus@users.noreply.github.com>"]
