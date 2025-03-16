@@ -2,7 +2,8 @@ import std/[logging, strformat, tables, with]
 import ./[common, config, jobs, registry]
 
 type
-  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
+  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient,
+      config: Config): void
 
 using
   jobs: seq[NomadJob]
@@ -46,9 +47,9 @@ func initActionRegistry*(): Registry[ActionHandler] =
     add("reconcile", reconcileHandler)
   return registry
 
-proc handle*(action: string, registry: Registry[ActionHandler], jobs: seq[NomadJob],
-    nomad: NomadClient, config: Config): void =
-  let handle = block:
+proc handle*(action: string, registry: Registry[ActionHandler], jobs: seq[
+    NomadJob], nomad: NomadClient, config: Config): void =
+  let handle =
     if registry.hasKey(action):
       registry[action]
     else:

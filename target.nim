@@ -3,32 +3,34 @@ import ./[config, jobs, registry]
 # import pkg/regex
 
 type
-  TargetFilter = proc(jobs: seq[NomadJob], target: string, config: Config): seq[NomadJob]
+  TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
 
 using
   jobs: seq[NomadJob]
-  target: string
   config: Config
+  target: string
+  registry: Registry[TargetFilter]
 
-func infraFilter(jobs, target, config): seq[NomadJob] =
+func infraFilter(jobs, config): seq[NomadJob] =
   ## Filters on infrastructure jobs, ordering them as in config
   for infraJobName in config.infraJobs:
     result.add(
       jobs.filterIt(it.name == infraJobName)
     )
 
-func servicesFilter(jobs, target, config): seq[NomadJob] =
+func servicesFilter(jobs, config): seq[NomadJob] =
   ## Filters on service (non-infra) jobs, ordering them alphabetically
   result = jobs
     .filterIt(it.name notin config.infraJobs)
     .sortedByIt(it.name)
 
-func allFilter(jobs, target, config): seq[NomadJob] =
+func allFilter(jobs, config): seq[NomadJob] =
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result =
-    jobs.infraFilter(target, config) & jobs.servicesFilter(target, config)
+    jobs.infraFilter(config) &
+    jobs.servicesFilter(config)
 
-proc configFilter(jobs, target, config): seq[NomadJob] =
+proc configFilter(jobs, config): seq[NomadJob] =
   ## Filters on jobs matching config-defined regex patterns
   discard
   # let filterOpts = config.filters.getOrDefault(name)
@@ -37,9 +39,11 @@ proc configFilter(jobs, target, config): seq[NomadJob] =
   #   var match = RegexMatch2()
   # TODO: readSpec etc.
 
-func nameFilter(jobs, target, config): seq[NomadJob] =
+func nameFilter(target): TargetFilter =
   ## Filters on jobs matching the target job name
-  result = jobs.filterIt(it.name == target)
+  # nameFilter is a special case needing a target param, whence the closure here
+  return proc(jobs, config): seq[NomadJob] =
+    result = jobs.filterIt(it.name == target)
 
 func initTargetRegistry*(): Registry[TargetFilter] =
   var registry = TargetFilter.initRegistry
@@ -49,14 +53,13 @@ func initTargetRegistry*(): Registry[TargetFilter] =
     add("all", allFilter)
   return registry
 
-proc filter*(target: string, jobs: seq[NomadJob], registry: Registry[TargetFilter],
-    config: Config): seq[NomadJob] =
-  let filter = block:
+proc filter*(target, jobs, registry, config): seq[NomadJob] =
+  let filter =
     if registry.hasKey(target):
       registry[target]
     elif config.filters.hasKey(target):
       configFilter
     else:
-      nameFilter
+      nameFilter(target)
 
-  jobs.filter(target, config)
+  result = jobs.filter(config)
