@@ -4,47 +4,36 @@ import ./[common, config, jobs, registry]
 type
   ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
 
-type
-  Action* = enum
-    Up = "up",
-    Down = "down",
-    Find = "find",
-    List = "list",
-    Image = "image",
-    Logs = "logs",
-    Reconcile = "reconcile"
+using
+  jobs: seq[NomadJob]
+  nomad: NomadClient
+  config: Config
 
-template define(name: untyped, body: untyped) =
-  ## Centralizes the function signature of action handlers
-  proc name(jobs {.inject.}: seq[NomadJob], nomad {.inject.}: NomadClient,
-      config {.inject.}: Config): void =
-    body
-
-define(upHandler):
+proc upHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-define(downHandler):
+proc downHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-define(findHandler):
+proc findHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-define(listHandler):
+proc listHandler(jobs, nomad, config): void =
   for job in jobs: echo job.name
 
-define(imageHandler):
+proc imageHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-define(logsHandler):
+proc logsHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-define(execHandler):
+proc execHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-define(reconcileHandler):
+proc reconcileHandler(jobs, nomad, config): void =
   echo "not implemented"
 
-proc initActionRegistry*(): Registry[ActionHandler] =
+func initActionRegistry*(): Registry[ActionHandler] =
   var registry = ActionHandler.initRegistry
   with registry:
     add("up", upHandler)
