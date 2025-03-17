@@ -2,12 +2,6 @@ import std/[os, strutils, tables]
 import ./[action, common, config, jobs, target]
 import pkg/cligen
 
-const targetRegistry = initTargetRegistry()
-const actionRegistry = initActionRegistry()
-
-let defaultConfigPath =
-  getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
-
 # TODO:
 # let actionHelp = "Available actions: " & toSeq(actionRegistry.keys).join(", ")
 # let targetHelp = "Available targets: " & toSeq(targetRegistry.keys).join(", ") &
@@ -17,7 +11,7 @@ proc main(
   # TODO: explicit positional args
   args: seq[string],
   # TODO: verbose default text
-  config: string = defaultConfigPath,
+  config: string = "",
   dry_run: bool = false,
   detach: bool = false,
   purge: bool = false,
@@ -30,6 +24,12 @@ proc main(
 ) =
   ## Nomad job manager CLI
 
+  const targetRegistry = initTargetRegistry()
+  const actionRegistry = initActionRegistry()
+
+  let defaultConfigPath =
+    getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+
   if version:
     # TODO:
     echo "not implemented"
@@ -39,14 +39,16 @@ proc main(
     echo "not implemented"
     quit(0)
 
-  let config = config.parse
+  let parsedConfig =
+    if config != "": config.parse
+    else: defaultConfigPath.parse
 
   if list_actions:
     for a in actionRegistry.keys: echo a
     quit(0)
   if list_targets:
     for t in targetRegistry.keys: echo t
-    for f in config.filters.keys: echo f
+    for f in parsedConfig.filters.keys: echo f
     quit(0)
   if list_options:
     # TODO:
@@ -58,10 +60,10 @@ proc main(
 
   let action = args[0]
   let target = args[1]
-  let allJobs = findJobs(config)
-  let filteredJobs = target.filter(allJobs, targetRegistry, config)
+  let allJobs = findJobs(parsedConfig)
+  let filteredJobs = target.filter(allJobs, targetRegistry, parsedConfig)
 
-  action.handle(actionRegistry, filteredJobs, NomadClient(), config)
+  action.handle(actionRegistry, filteredJobs, NomadClient(), parsedConfig)
 
 when isMainModule:
   clCfg.helpSyntax = ""
