@@ -11,28 +11,28 @@ using
   config: Config
 
 proc upHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 proc downHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 proc findHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 proc listHandler(jobs, nomad, config): void =
   for job in jobs: echo job.name
 
 proc imageHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 proc logsHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 proc execHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 proc reconcileHandler(jobs, nomad, config): void =
-  echo "not implemented"
+  info "not implemented"
 
 func initActionRegistry*(): Registry[ActionHandler] =
   var registry = ActionHandler.initRegistry

@@ -1,4 +1,4 @@
-import std/[tables, parsecfg, sequtils, strutils, paths, with]
+import std/[logging, tables, parsecfg, sequtils, strformat, strutils, paths, with]
 
 type
   Config* = object

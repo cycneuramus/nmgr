@@ -1,4 +1,4 @@
-import std/[os, strutils, tables]
+import std/[logging, os, strutils, tables]
 import ./[action, common, config, jobs, target]
 import pkg/cligen
 
@@ -24,19 +24,27 @@ proc main(
 ) =
   ## Nomad job manager CLI
 
+  let logLevel =
+    if verbose: lvlDebug
+    else: lvlInfo
+
+  let logger =
+    newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
+  addHandler(logger)
+
   const targetRegistry = initTargetRegistry()
   const actionRegistry = initActionRegistry()
 
-  let defaultConfigPath =
+  let defaultConfigPath: string =
     getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
 
   if version:
     # TODO:
-    echo "not implemented"
+    info "not implemented"
     quit(0)
   if completion:
     # TODO:
-    echo "not implemented"
+    info "not implemented"
     quit(0)
 
   let parsedConfig =
@@ -52,7 +60,7 @@ proc main(
     quit(0)
   if list_options:
     # TODO:
-    echo "not implemented"
+    info "not implemented"
     quit(0)
 
   if args.len < 2:
