@@ -2,11 +2,6 @@ import std/[logging, os, strutils, tables]
 import ./[action, common, config, jobs, target]
 import pkg/cligen
 
-# TODO:
-# let actionHelp = "Available actions: " & toSeq(actionRegistry.keys).join(", ")
-# let targetHelp = "Available targets: " & toSeq(targetRegistry.keys).join(", ") &
-#   ", a custom filter, specific job name, or string (for \"find\")"
-
 proc main(
   # TODO: explicit positional args
   args: seq[string],
@@ -24,6 +19,9 @@ proc main(
 ) =
   ## Nomad job manager CLI
 
+  const targetRegistry = initTargetRegistry()
+  const actionRegistry = initActionRegistry()
+
   let logLevel =
     if verbose: lvlDebug
     else: lvlInfo
@@ -32,11 +30,12 @@ proc main(
     newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
   addHandler(logger)
 
-  const targetRegistry = initTargetRegistry()
-  const actionRegistry = initActionRegistry()
-
   let defaultConfigPath: string =
     getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+
+  let parsedConfig =
+    if config != "": config.parse
+    else: defaultConfigPath.parse
 
   if version:
     # TODO:
@@ -47,10 +46,7 @@ proc main(
     info "not implemented"
     quit(0)
 
-  let parsedConfig =
-    if config != "": config.parse
-    else: defaultConfigPath.parse
-
+  # Short-circuits for hidden bash completion flags
   if list_actions:
     for a in actionRegistry.keys: echo a
     quit(0)
