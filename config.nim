@@ -10,7 +10,12 @@ type
 
 proc parse*(configPath: string): Config =
   var config: Config
-  let parser = loadConfig(configPath)
+  let parser =
+    try:
+      loadConfig(configPath)
+    except IOError as e:
+      fatal fmt"Error parsing config: {e.msg}"
+      quit(1)
 
   with config:
     baseDir = parser.getSectionValue("general", "base_dir", "")
