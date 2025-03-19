@@ -22,20 +22,20 @@ proc main(
   const targetRegistry = initTargetRegistry()
   const actionRegistry = initActionRegistry()
 
-  let logLevel =
-    if verbose: lvlDebug
-    else: lvlInfo
-
-  let logger =
-    newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
+  let
+    logLevel =
+      if verbose: lvlDebug
+      else: lvlInfo
+    logger =
+      newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
   addHandler(logger)
 
-  let defaultConfigPath: string =
-    getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
-
-  let parsedConfig =
-    if config != "": config.parse
-    else: defaultConfigPath.parse
+  let
+    defaultConfigPath: string =
+      getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+    parsedConfig =
+      if config != "": config.parse
+      else: defaultConfigPath.parse
 
   if version:
     # TODO:
@@ -62,10 +62,11 @@ proc main(
   if args.len < 2:
     raise newException(HelpError, "Missing arguments.\n\n${HELP}")
 
-  let action = args[0]
-  let target = args[1]
-  let allJobs = findJobs(parsedConfig)
-  let filteredJobs = target.filter(allJobs, targetRegistry, parsedConfig)
+  let
+    action = args[0]
+    target = args[1]
+    allJobs = findJobs(parsedConfig)
+    filteredJobs = target.filter(allJobs, targetRegistry, parsedConfig)
 
   action.handle(actionRegistry, filteredJobs, NomadClient(), parsedConfig)
 
