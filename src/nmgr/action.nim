@@ -1,9 +1,7 @@
 import std/[logging, strformat, tables, with]
 import ./[common, config, jobs, registry]
 
-type
-  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient,
-      config: Config): void
+type ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
 
 using
   jobs: seq[NomadJob]
@@ -20,7 +18,8 @@ proc findHandler(jobs, nomad, config): void =
   info "not implemented"
 
 proc listHandler(jobs, nomad, config): void =
-  for job in jobs: echo job.name
+  for job in jobs:
+    echo job.name
 
 proc imageHandler(jobs, nomad, config): void =
   info "not implemented"
@@ -47,8 +46,13 @@ func initActionRegistry*(): Registry[ActionHandler] =
     add("reconcile", reconcileHandler)
   return registry
 
-proc handle*(action: string, registry: Registry[ActionHandler], jobs: seq[
-    NomadJob], nomad: NomadClient, config: Config): void =
+proc handle*(
+    action: string,
+    registry: Registry[ActionHandler],
+    jobs: seq[NomadJob],
+    nomad: NomadClient,
+    config: Config,
+): void =
   let handle =
     if registry.hasKey(action):
       registry[action]

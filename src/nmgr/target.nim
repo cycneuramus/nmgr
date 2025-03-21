@@ -2,8 +2,7 @@ import std/[algorithm, tables, sequtils, with]
 import ./[config, jobs, registry]
 # import pkg/regex
 
-type
-  TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
+type TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
 
 using
   jobs: seq[NomadJob]
@@ -14,21 +13,15 @@ using
 func infraFilter(jobs, config): seq[NomadJob] =
   ## Filters on infrastructure jobs, ordering them as in config
   for infraJobName in config.infraJobs:
-    result.add(
-      jobs.filterIt(it.name == infraJobName)
-    )
+    result.add(jobs.filterIt(it.name == infraJobName))
 
 func servicesFilter(jobs, config): seq[NomadJob] =
   ## Filters on service (non-infra) jobs, ordering them alphabetically
-  result = jobs
-    .filterIt(it.name notin config.infraJobs)
-    .sortedByIt(it.name)
+  result = jobs.filterIt(it.name notin config.infraJobs).sortedByIt(it.name)
 
 func allFilter(jobs, config): seq[NomadJob] =
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
-  result =
-    jobs.infraFilter(config) &
-    jobs.servicesFilter(config)
+  result = jobs.infraFilter(config) & jobs.servicesFilter(config)
 
 proc configFilter(jobs, config): seq[NomadJob] =
   ## Filters on jobs matching config-defined regex patterns

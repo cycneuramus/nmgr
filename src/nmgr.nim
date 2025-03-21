@@ -3,19 +3,19 @@ import ./nmgr/[action, common, config, jobs, target]
 import pkg/cligen
 
 proc main(
-  # TODO: explicit positional args
-  args: seq[string],
-  # TODO: verbose default text
-  config: string = "",
-  dry_run: bool = false,
-  detach: bool = false,
-  purge: bool = false,
-  verbose: bool = false,
-  completion: bool = false,
-  version: bool = false,
-  list_actions: bool = false,
-  list_targets: bool = false,
-  list_options: bool = false,
+    # TODO: explicit positional args
+    args: seq[string],
+    # TODO: verbose default text
+    config: string = "",
+    dry_run: bool = false,
+    detach: bool = false,
+    purge: bool = false,
+    verbose: bool = false,
+    completion: bool = false,
+    version: bool = false,
+    list_actions: bool = false,
+    list_targets: bool = false,
+    list_options: bool = false,
 ) =
   ## Nomad job manager CLI
 
@@ -23,19 +23,14 @@ proc main(
   const actionRegistry = initActionRegistry()
 
   let
-    logLevel =
-      if verbose: lvlDebug
-      else: lvlInfo
-    logger =
-      newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
+    logLevel = if verbose: lvlDebug else: lvlInfo
+    logger = newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
   addHandler(logger)
 
   let
     defaultConfigPath: string =
       getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
-    parsedConfig =
-      if config != "": config.parse
-      else: defaultConfigPath.parse
+    parsedConfig = if config != "": config.parse else: defaultConfigPath.parse
 
   if version:
     # TODO:
@@ -48,11 +43,14 @@ proc main(
 
   # Short-circuits for hidden bash completion flags
   if list_actions:
-    for a in actionRegistry.keys: echo a
+    for a in actionRegistry.keys:
+      echo a
     quit(0)
   if list_targets:
-    for t in targetRegistry.keys: echo t
-    for f in parsedConfig.filters.keys: echo f
+    for t in targetRegistry.keys:
+      echo t
+    for f in parsedConfig.filters.keys:
+      echo f
     quit(0)
   if list_options:
     # TODO:
@@ -72,7 +70,8 @@ proc main(
 
 when isMainModule:
   clCfg.helpSyntax = ""
-  dispatch(main,
+  dispatch(
+    main,
     cmdName = "nmgr",
     help = {
       "config": "path to config file",

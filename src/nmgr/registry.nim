@@ -2,8 +2,7 @@
 
 import std/[strformat, tables]
 
-type
-  Registry*[T] = OrderedTable[string, T]
+type Registry*[T] = OrderedTable[string, T]
 
 proc initRegistry*[T](t: typedesc[T]): Registry[T] =
   ## Initializes a new registry for type T
@@ -22,10 +21,9 @@ proc get*[T](registry: Registry[T], key: string): T =
   raise newException(ValueError, fmt"Unknown key '{key}'")
 
 runnableExamples:
-  type
-    Cat = object
-      name: string
-      age: int
+  type Cat = object
+    name: string
+    age: int
 
   let kitten = Cat(name: "Simba", age: 1)
   let cat = Cat(name: "Mufasa", age: 5)

@@ -1,3 +1,2 @@
 # Placeholders
-type
-  NomadClient* = object
+type NomadClient* = object

@@ -6,11 +6,10 @@ import pkg/regex
 
 const specExts = [".hcl", ".nomad"]
 
-type
-  NomadJob* = object
-    name*: string
-    specPath*: Path
-    configPaths*: seq[Path]
+type NomadJob* = object
+  name*: string
+  specPath*: Path
+  configPaths*: seq[Path]
 
 proc getJobName(specPath: Path): string =
   ## Extracts job name from Nomad spec file by finding `job "name"` pattern
@@ -61,10 +60,4 @@ proc findJobs*(config: Config): seq[NomadJob] =
       let configDir = parentDir(path)
       let configPaths = findConfigs(configDir, config.jobConfigExts)
 
-      result.add(
-        NomadJob(
-          name: name,
-          specPath: path,
-          configPaths: configPaths
-        )
-      )
+      result.add(NomadJob(name: name, specPath: path, configPaths: configPaths))
