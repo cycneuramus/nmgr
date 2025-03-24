@@ -1,5 +1,5 @@
 import std/[logging, strformat, tables, with]
-import ./[common, config, jobs, registry]
+import ./[config, jobs, nomad, registry]
 
 type ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
 

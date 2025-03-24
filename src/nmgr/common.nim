@@ -1,2 +1,0 @@
-# Placeholders
-type NomadClient* = object

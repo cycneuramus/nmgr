@@ -1,5 +1,5 @@
 import std/[logging, os, strutils, tables]
-import ./nmgr/[action, common, config, jobs, target]
+import ./nmgr/[action, config, jobs, nomad, target]
 import pkg/cligen
 
 proc main(
