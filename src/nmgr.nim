@@ -65,8 +65,10 @@ proc main(
     target = args[1]
     allJobs = findJobs(parsedConfig)
     filteredJobs = target.filter(allJobs, targetRegistry, parsedConfig)
+    nomadClient =
+      NomadClient(config: parsedConfig, dryRun: dry_run, detach: detach, purge: purge)
 
-  action.handle(actionRegistry, filteredJobs, NomadClient(), parsedConfig)
+  action.handle(actionRegistry, filteredJobs, nomadClient, parsedConfig)
 
 when isMainModule:
   clCfg.helpSyntax = ""

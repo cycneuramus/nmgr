@@ -1,6 +1,6 @@
 ## Represents and operates on Nomad jobs
 
-import std/[paths, dirs, strformat, logging]
+import std/[dirs, logging, paths, strformat]
 import ./config
 import pkg/regex
 
@@ -25,19 +25,18 @@ proc findConfigs(jobDir: Path, configExts: seq[string]): seq[Path] =
     if kind == pcFile or path.splitFile.ext in configExts:
       result.add(path)
 
-# TODO: for later use
-# proc readSpec(job: NomadJob): string =
-#   try:
-#     result = readFile(job.specPath.string)
-#   except OSError as e:
-#     warn fmt"Unable to read spec file {job.specPath}: {e.msg}"
+proc readSpec*(job: NomadJob): string =
+  try:
+    result = readFile(job.specPath.string)
+  except OSError as e:
+    warn fmt"Unable to read spec file {job.specPath}: {e.msg}"
 
-# proc readConfigs(job: NomadJob): seq[string] =
-#   for cfgFile in job.configPaths:
-#     try:
-#       result.add readFile(cfgFile.string)
-#     except OSError as e:
-#       warn fmt"Unable to read config file {cfgFile}: {e.msg}"
+proc readConfigs*(job: NomadJob): seq[string] =
+  for cfgFile in job.configPaths:
+    try:
+      result.add readFile(cfgFile.string)
+    except OSError as e:
+      warn fmt"Unable to read config file {cfgFile}: {e.msg}"
 
 proc findJobs*(config: Config): seq[NomadJob] =
   # Finds Nomad jobs by walking subdirectories of base dir
