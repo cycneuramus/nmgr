@@ -1,11 +1,19 @@
-import std/[logging, tables, parsecfg, sequtils, strformat, strutils, paths, with]
+import std/[logging, parsecfg, paths, sequtils, strformat, strutils, tables, with]
 
-type Config* = object
-  baseDir*: Path
-  ignoreDirs*: seq[Path]
-  infraJobs*: seq[string]
-  jobConfigExts*: seq[string]
-  filters*: Table[string, Table[string, string]]
+type
+  Filter* = object
+    name*: string
+    pattern*: string
+    extendedSearch*: bool
+    excludeInfra*: bool
+    isRegex*: bool
+
+  Config* = object
+    baseDir*: Path
+    ignoreDirs*: seq[Path]
+    infraJobs*: seq[string]
+    jobConfigPatterns*: seq[string]
+    filters*: Table[string, Filter]
 
 proc parse*(configPath: string): Config =
   var config: Config
@@ -21,15 +29,20 @@ proc parse*(configPath: string): Config =
     ignoreDirs =
       parser.getSectionValue("general", "ignore_dirs", "").split(" ").mapIt(it.Path)
     infraJobs = parser.getSectionValue("general", "infra_jobs", "").split(" ")
-    jobConfigExts = parser.getSectionValue("general", "job_config_exts", "").split(" ")
-    filters = initTable[string, Table[string, string]]()
+    jobConfigPatterns =
+      parser.getSectionValue("general", "job_config_patterns", "").split(" ")
+    filters = initTable[string, Filter]()
 
   for section in parser.sections:
     if section.startsWith("filter."):
       let name = section.split(".")[1]
-      var opts = initTable[string, string]()
-      for key, val in parser[section].pairs:
-        opts[key] = val
-      config.filters[name] = opts
+      let filter = parser[section]
+      config.filters[name] = Filter(
+        name: name,
+        pattern: filter.getOrDefault("pattern", ""),
+        extendedSearch: filter.getOrDefault("extended_search", "false").parseBool,
+        excludeInfra: filter.getOrDefault("exclude_infra", "false").parseBool,
+        isRegex: filter.getOrDefault("is_regex", "false").parseBool,
+      )
 
   return config

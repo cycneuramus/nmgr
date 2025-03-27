@@ -1,6 +1,5 @@
-import std/[algorithm, tables, sequtils, with]
+import std/[algorithm, logging, sequtils, strformat, tables, with]
 import ./[config, jobs, registry]
-# import pkg/regex
 
 type TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
 
@@ -23,18 +22,27 @@ func allFilter(jobs, config): seq[NomadJob] =
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result = jobs.infraFilter(config) & jobs.servicesFilter(config)
 
-proc configFilter(jobs, config): seq[NomadJob] =
-  ## Filters on jobs matching config-defined regex patterns
-  discard
-  # let filterOpts = config.filters.getOrDefault(name)
-  # if "pattern" in filterOpts:
-  #   let pattern = re2(filterOpts["pattern"])
-  #   var match = RegexMatch2()
-  # TODO: readSpec etc.
+func configFilter(target): TargetFilter =
+  ## Filters on jobs matching config-defined patterns
+  # configFilter is a special case needing a filter name param, whence the closure
+  return proc(jobs, config): seq[NomadJob] =
+    let filter = config.filters[target]
+    for job in jobs:
+      if filter.excludeInfra and job.name in config.infraJobs:
+        continue
+
+      var paths = @[job.specPath]
+      if filter.extendedSearch:
+        paths.add(job.configPaths)
+
+      if job.matchesFilter(filter, paths, config):
+        result.add(job)
+
+    result = result.sortedByIt(it.name)
 
 func nameFilter(target): TargetFilter =
   ## Filters on jobs matching the target job name
-  # nameFilter is a special case needing a target param, whence the closure here
+  # nameFilter is a special case needing a target param, whence the closure
   return proc(jobs, config): seq[NomadJob] =
     result = jobs.filterIt(it.name == target)
 
@@ -50,8 +58,8 @@ proc filter*(target, jobs, registry, config): seq[NomadJob] =
   let filter =
     if registry.hasKey(target):
       registry[target]
-    elif config.filters.hasKey(target):
-      configFilter
+    elif target in config.filters:
+      configFilter(target)
     else:
       nameFilter(target)
 

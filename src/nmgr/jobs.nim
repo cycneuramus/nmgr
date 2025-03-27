@@ -1,6 +1,6 @@
 ## Represents and operates on Nomad jobs
 
-import std/[dirs, logging, paths, strformat]
+import std/[dirs, logging, paths, strformat, strutils]
 import ./config
 import pkg/regex
 
@@ -19,11 +19,14 @@ proc getJobName(specPath: Path): string =
     if find(line, pattern, match):
       return line[match.group(0)]
 
-proc findConfigs(jobDir: Path, configExts: seq[string]): seq[Path] =
+proc findConfigs(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
   ## Finds configuration files in job directory
   for (kind, path) in walkDir(jobDir):
-    if kind == pcFile or path.splitFile.ext in configExts:
-      result.add(path)
+    if kind == pcFile:
+      let fileName = $path.extractFilename
+      for pattern in configFilePatterns:
+        if fileName.contains(pattern):
+          result.add(path)
 
 proc readSpec*(job: NomadJob): string =
   try:
@@ -31,15 +34,30 @@ proc readSpec*(job: NomadJob): string =
   except OSError as e:
     warn fmt"Unable to read spec file {job.specPath}: {e.msg}"
 
-proc readConfigs*(job: NomadJob): seq[string] =
-  for cfgFile in job.configPaths:
-    try:
-      result.add readFile(cfgFile.string)
-    except OSError as e:
-      warn fmt"Unable to read config file {cfgFile}: {e.msg}"
+proc matchesFilter*(
+    job: NomadJob, filter: Filter, paths: seq[Path], config: Config
+): bool =
+  ## Checks if any file in paths contains a line matching the pattern
+
+  let matchesPattern: proc(line: string): bool =
+    if filter.isRegex:
+      let pattern = re2(filter.pattern)
+      var match: RegexMatch2
+      proc(line: string): bool =
+        find(line, pattern, match)
+    else:
+      proc(line: string): bool =
+        line.contains(filter.pattern)
+
+  for path in paths:
+    for line in lines($path):
+      if line.matchesPattern:
+        return true
+
+  return false
 
 proc findJobs*(config: Config): seq[NomadJob] =
-  # Finds Nomad jobs by walking subdirectories of base dir
+  ## Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
     error fmt"Base directory not found: {config.baseDir.string}"
     return
@@ -57,6 +75,6 @@ proc findJobs*(config: Config): seq[NomadJob] =
         warn fmt"Could not extract job name from {path.string}"
 
       let configDir = parentDir(path)
-      let configPaths = findConfigs(configDir, config.jobConfigExts)
+      let configPaths = findConfigs(configDir, config.jobConfigPatterns)
 
       result.add(NomadJob(name: name, specPath: path, configPaths: configPaths))
