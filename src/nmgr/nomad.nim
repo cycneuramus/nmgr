@@ -1,4 +1,4 @@
-import std/[logging, os, osproc, paths, sequtils, streams, strformat, strutils]
+import std/[logging, osproc, paths, sequtils, strformat, strutils]
 import ./[config, jobs]
 import pkg/regex
 
@@ -10,45 +10,33 @@ type NomadClient* = object
 
 using self: NomadClient
 
-proc execute(
-    self;
-    cmd: seq[string],
-    cwd: string = "",
-    captureOut: bool = false,
-    streaming: bool = false,
+proc executeCmd(
+    self; cmd: seq[string], workingDir: string = "", captureOutput: bool = false
 ): string =
   let cmdStr = cmd.join(" ")
-  debug fmt"Executing command: {cmdStr}", if cwd.len > 0: cwd else: ""
-
-  var output: string
+  debug fmt"Executing command: {cmdStr}", if workingDir.len > 0: workingDir else: ""
 
   # For commands that modify state, honor dryRun
-  if self.dryRun and not captureOut:
+  if self.dryRun and not captureOutput:
     info fmt"[DRY RUN] {cmdStr}"
-    return output
+    return
+
+  if captureOutput:
+    let output = execProcess(
+      command = cmd[0],
+      args = cmd[1 ..^ 1],
+      workingDir = workingDir,
+      options = {poUsePath, poStdErrToStdOut},
+    )
+    return output.strip()
 
   let process = startProcess(
     command = cmd[0],
-    args = cmd[1 .. cmd.high],
-    workingDir = cwd,
-    options = {poUsePath, poStdErrToStdOut},
+    args = cmd[1 ..^ 1],
+    workingDir = workingDir,
+    options = {poUsePath, poParentStreams},
   )
-  defer:
-    process.close
-
-  if streaming:
-    var line: string
-    while process.running:
-      if process.outputStream.readLine(line):
-        echo line
-      else:
-        # No line available right now; avoid tight CPU loop
-        sleep(100)
-  elif captureOut:
-    output = process.outputStream.readAll
-
-  discard process.waitForExit
-  return output.strip
+  discard process.waitForExit()
 
 proc runJob*(self; job: NomadJob): void =
   var cmd = @["nomad", "run"]
@@ -56,7 +44,7 @@ proc runJob*(self; job: NomadJob): void =
     cmd.add("-detach")
   cmd.add($job.specPath)
 
-  discard self.execute(cmd, cwd = $job.specPath.parentDir)
+  discard self.executeCmd(cmd, workingDir = $job.specPath.parentDir)
   debug fmt"Started job: {job.name}"
 
 proc stopJob*(self; jobName: string): void =
@@ -65,28 +53,28 @@ proc stopJob*(self; jobName: string): void =
     cmd.add("-purge")
   cmd.add(jobName)
 
-  discard self.execute(cmd)
+  discard self.executeCmd(cmd)
   debug fmt"Stopped job: {jobName}"
 
 proc isRunning*(self; jobName: string): bool =
   let cmd = @["nomad", "job", "status", "-short", jobName]
-  let output = self.execute(cmd, captureOut = true)
+  let output = self.executeCmd(cmd, captureOutput = true)
   let statusLines = output.splitlines.filterIt(it.contains("Status"))
 
   result = statusLines[0].toLower.contains("running")
 
 proc tailLogs*(self; taskName: string, jobName: string): void =
   let cmd = @["nomad", "logs", "-f", "-task", taskName, "-job", jobName]
-  discard self.execute(cmd, streaming = true)
+  discard self.executeCmd(cmd)
 
 proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): void =
   var cmd = @["nomad", "alloc", "exec", "-task", taskName, "-job", jobName]
   cmd.add(subCmd)
-  echo self.execute(cmd, captureOut = true)
+  echo self.executeCmd(cmd)
 
 proc inspectJob(self; jobName: string): string =
   let cmd = @["nomad", "job", "inspect", "-hcl", jobName]
-  result = self.execute(cmd, captureOut = true)
+  result = self.executeCmd(cmd, captureOutput = true)
 
 func extractImages(spec: string): string =
   const pattern = re2("image\\s*=\\s*(\".*?\"|\\{[^}]*\\})", {regexDotAll})
@@ -96,7 +84,7 @@ func extractImages(spec: string): string =
     let captureRange = match.group(0)
     if captureRange.a < 0:
       continue
-    let matchStr = spec[captureRange.a .. captureRange.b].strip
+    let matchStr = spec[captureRange.a .. captureRange.b].strip()
 
     # Skip reference to local HCL variables
     if matchStr.contains("local."):
@@ -104,9 +92,9 @@ func extractImages(spec: string): string =
 
     # If we caught a brace block, split out its content lines
     if matchStr.startsWith('{') and matchStr.endsWith('}'):
-      let content = matchStr[1 .. matchStr.len - 2].strip
+      let content = matchStr[1 .. matchStr.len - 2].strip()
       for line in content.splitLines:
-        let trimmed = line.strip
+        let trimmed = line.strip()
         if not trimmed.isEmptyOrWhitespace:
           matches.add(trimmed)
     else:

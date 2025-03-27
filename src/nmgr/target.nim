@@ -1,4 +1,4 @@
-import std/[algorithm, logging, sequtils, strformat, tables, with]
+import std/[algorithm, sequtils, tables, with]
 import ./[config, jobs, registry]
 
 type TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
