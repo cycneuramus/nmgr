@@ -61,7 +61,11 @@ proc isRunning*(self; jobName: string): bool =
   let output = self.executeCmd(cmd, captureOutput = true)
   let statusLines = output.splitlines.filterIt(it.contains("Status"))
 
-  result = statusLines[0].toLower.contains("running")
+  result =
+    if statusLines.len == 0:
+      false
+    else:
+      statusLines[0].toLower.contains("running")
 
 proc tailLogs*(self; taskName: string, jobName: string): void =
   let cmd = @["nomad", "logs", "-f", "-task", taskName, "-job", jobName]
