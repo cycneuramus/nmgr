@@ -1,4 +1,4 @@
-import std/[logging, os, strutils, tables]
+import std/[logging, os, strformat, strutils, tables]
 import ./nmgr/[action, config, jobs, nomad, target]
 import pkg/cligen
 
@@ -64,11 +64,20 @@ proc main(
     action = args[0]
     target = args[1]
     allJobs = findJobs(parsedConfig)
-    filteredJobs = target.filter(allJobs, targetRegistry, parsedConfig)
     nomadClient =
       NomadClient(config: parsedConfig, dryRun: dry_run, detach: detach, purge: purge)
+    filteredJobs =
+      try:
+        target.filter(allJobs, targetRegistry, parsedConfig)
+      except CatchableError as e:
+        fatal fmt"Error filtering on target: {e.msg}"
+        quit(1)
 
-  action.handle(actionRegistry, filteredJobs, nomadClient, parsedConfig)
+  try:
+    action.handle(actionRegistry, filteredJobs, nomadClient, parsedConfig)
+  except CatchableError as e:
+    fatal fmt"Error handling action: {e.msg}"
+    quit(1)
 
 when isMainModule:
   clCfg.helpSyntax = ""

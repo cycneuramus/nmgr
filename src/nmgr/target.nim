@@ -1,7 +1,9 @@
-import std/[algorithm, sequtils, tables, with]
+import std/[algorithm, sequtils, strformat, tables, with]
 import ./[config, jobs, registry]
 
-type TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
+type
+  TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
+  TargetNotFoundError = object of CatchableError
 
 using
   jobs: seq[NomadJob]
@@ -64,3 +66,5 @@ proc filter*(target, jobs, registry, config): seq[NomadJob] =
       nameFilter(target)
 
   result = jobs.filter(config)
+  if result.len == 0:
+    raise newException(TargetNotFoundError, fmt"'{target}' not found")

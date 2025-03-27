@@ -1,7 +1,9 @@
 import std/[logging, strformat, strutils, tables, with]
 import ./[config, jobs, nomad, registry]
 
-type ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
+type
+  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
+  UnknownActionError = object of CatchableError
 
 using
   jobs: seq[NomadJob]
@@ -131,8 +133,6 @@ proc handle*(
     if registry.hasKey(action):
       registry[action]
     else:
-      # TODO: bubble up
-      error fmt"Unknown action '{action}'"
-      quit(1)
+      raise newException(UnknownActionError, fmt"'{action}' is unknown")
 
   jobs.handle(nomad, config)
