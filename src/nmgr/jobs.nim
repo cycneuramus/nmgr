@@ -37,6 +37,7 @@ proc matchesFilter*(
   ## Checks if any file in paths contains a line matching the pattern
 
   let matchesPattern: proc(line: string): bool =
+    # TODO: actually test, or perhaps just remove regex support
     if filter.isRegex:
       let pattern = re2(filter.pattern)
       var match: RegexMatch2

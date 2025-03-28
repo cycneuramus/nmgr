@@ -7,9 +7,9 @@ const
   cligenShort = toShortTable(cliOpts)
 
 proc main(
-    # TODO: explicit positional args
+    # TODO: demand explicit positional args for action / target
     args: seq[string],
-    # TODO: verbose default text
+    # TODO: default text is too verbose
     config: string = "",
     dry_run: bool = false,
     detach: bool = false,
@@ -41,11 +41,11 @@ proc main(
     parsedConfig = if config != "": config.parse else: defaultConfigPath.parse
 
   if version:
-    # TODO:
+    # TODO: implement version check
     info "not implemented"
     quit(0)
   if completion:
-    # TODO:
+    # TODO: install completion script
     info "not implemented"
     quit(0)
 
