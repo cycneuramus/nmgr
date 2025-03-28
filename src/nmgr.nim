@@ -27,6 +27,10 @@ proc main(
     logger = newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
   addHandler(logger)
 
+  if findExe("nomad").isEmptyOrWhitespace:
+    fatal fmt"`nomad` executable not found"
+    quit(1)
+
   let
     defaultConfigPath: string =
       getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
