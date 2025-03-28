@@ -1,6 +1,10 @@
-import std/[logging, os, strformat, strutils, tables]
-import ./nmgr/[action, config, jobs, nomad, target]
+import std/[algorithm, logging, os, sequtils, strformat, strutils, tables]
+import ./nmgr/[action, cli, config, jobs, nomad, target]
 import pkg/cligen
+
+const
+  cligenHelp = toHelpTable(cliOpts)
+  cligenShort = toShortTable(cliOpts)
 
 proc main(
     # TODO: explicit positional args
@@ -57,8 +61,11 @@ proc main(
       echo f
     quit(0)
   if list_options:
-    # TODO:
-    info "not implemented"
+    let
+      longOpts = cliOpts.mapIt("--" & $it.key.replace('_', '-')).sorted()
+      shortOpts = cliOpts.filterIt(it.short != '\0').mapIt("-" & it.short).sorted()
+    echo longOpts.join("\n")
+    echo shortOpts.join("\n")
     quit(0)
 
   if args.len < 2:
@@ -85,31 +92,4 @@ proc main(
 
 when isMainModule:
   clCfg.helpSyntax = ""
-  dispatch(
-    main,
-    cmdName = "nmgr",
-    help = {
-      "config": "path to config file",
-      "dry_run": "simulate execution",
-      "detach": "run jobs without waiting for completion",
-      "purge": "completely remove jobs when stopping",
-      "verbose": "show detailed output",
-      "completion": "install Bash completion script and exit",
-      "version": "show program version and exit",
-      "list_actions": "CLIGEN-NOHELP",
-      "list_targets": "CLIGEN-NOHELP",
-      "list_options": "CLIGEN-NOHELP",
-    },
-    short = {
-      "config": 'c',
-      "dry_run": 'n',
-      "detach": 'd',
-      "purge": 'p',
-      "verbose": 'v',
-      "completion": '\0',
-      "version": '\0',
-      "list_actions": '\0',
-      "list_targets": '\0',
-      "list_options": '\0',
-    },
-  )
+  dispatch(main, cmdName = "nmgr", help = cligenHelp, short = cligenShort)
