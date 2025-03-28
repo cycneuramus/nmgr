@@ -1,4 +1,4 @@
-import std/[logging, strformat, strutils, tables, with]
+import std/[logging, paths, strformat, strutils, tables, with]
 import ./[config, jobs, nomad, registry]
 
 type
@@ -62,7 +62,7 @@ proc listHandler(jobs, nomad, config): void =
 proc imageHandler(jobs, nomad, config): void =
   for job in jobs:
     let live = nomad.getLiveImage(job.name)
-    let spec = nomad.getSpecImage(job.readSpec)
+    let spec = nomad.getSpecImage(readSpec($job.specPath))
     echo &"Live images:\n{live}\n\nSpec images:\n{spec}"
 
 proc logsHandler(jobs, nomad, config): void =
@@ -97,7 +97,7 @@ proc reconcileHandler(jobs, nomad, config): void =
       continue
 
     let liveImage = nomad.getLiveImage(job.name)
-    let specImage = nomad.getSpecImage(job.readSpec)
+    let specImage = nomad.getSpecImage(readSpec($job.specPath))
 
     if liveImage == specImage:
       debug fmt"No changes for {job.name}; skipping"

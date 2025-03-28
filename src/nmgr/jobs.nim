@@ -1,7 +1,7 @@
 ## Represents and operates on Nomad jobs
 
-import std/[dirs, logging, paths, strformat, strutils]
-import ./config
+import std/[dirs, logging, options, paths, strformat, strutils]
+import ./[config, hclparser]
 import pkg/regex
 
 const specExts = [".hcl", ".nomad"]
@@ -11,13 +11,16 @@ type NomadJob* = object
   specPath*: Path
   configPaths*: seq[Path]
 
+proc readSpec*(specPath: string): string =
+  try:
+    result = readFile(specPath)
+  except OSError as e:
+    warn fmt"Unable to read spec file {specPath}: {e.msg}"
+
 proc getJobName(specPath: Path): string =
-  ## Extracts job name from Nomad spec file by finding `job "name"` pattern
-  let pattern = re2("job\\s+\"([^\"]+)\"")
-  var match = RegexMatch2()
-  for line in lines($specPath):
-    if find(line, pattern, match):
-      return line[match.group(0)]
+  let spec = readSpec($specPath)
+  let content = parseHcl(spec)
+  result = content.getJobName.get("")
 
 proc findConfigs(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
   ## Finds configuration files in job directory
@@ -27,12 +30,6 @@ proc findConfigs(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
       for pattern in configFilePatterns:
         if fileName.contains(pattern):
           result.add(path)
-
-proc readSpec*(job: NomadJob): string =
-  try:
-    result = readFile(job.specPath.string)
-  except OSError as e:
-    warn fmt"Unable to read spec file {job.specPath}: {e.msg}"
 
 proc matchesFilter*(
     job: NomadJob, filter: Filter, paths: seq[Path], config: Config

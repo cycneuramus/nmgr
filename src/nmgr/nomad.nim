@@ -1,6 +1,5 @@
 import std/[logging, osproc, paths, sequtils, strformat, strutils]
-import ./[config, jobs]
-import pkg/regex
+import ./[config, hclparser, jobs]
 
 type NomadClient* = object
   config*: Config
@@ -81,31 +80,8 @@ proc inspectJob(self; jobName: string): string =
   result = self.executeCmd(cmd, captureOutput = true)
 
 func extractImages(spec: string): string =
-  const pattern = re2("image\\s*=\\s*(\".*?\"|\\{[^}]*\\})", {regexDotAll})
-  var matches: seq[string]
-
-  for match in spec.findAll(pattern):
-    let captureRange = match.group(0)
-    if captureRange.a < 0:
-      continue
-    let matchStr = spec[captureRange.a .. captureRange.b].strip()
-
-    # Skip reference to local HCL variables
-    if matchStr.contains("local."):
-      continue
-
-    # If we caught a brace block, split out its content lines
-    if matchStr.startsWith('{') and matchStr.endsWith('}'):
-      let content = matchStr[1 .. matchStr.len - 2].strip()
-      for line in content.splitLines:
-        let trimmed = line.strip()
-        if not trimmed.isEmptyOrWhitespace:
-          matches.add(trimmed)
-    else:
-      # Otherwise, it's just a quoted string
-      matches.add(matchStr)
-
-  return matches.join("\n")
+  let content = parseHcl(spec)
+  result = content.extractImages().join("\n")
 
 proc getLiveImage*(self; jobName: string): string =
   result = extractImages(self.inspectJob(jobName))
@@ -114,11 +90,6 @@ func getSpecImage*(self; spec: string): string =
   result = extractImages(spec)
 
 proc getTasks*(self; jobName: string): seq[string] =
-  const pattern = re2("task\\s+\"([^\"]+)")
   let spec = self.inspectJob(jobName)
-  var matches: seq[string]
-
-  for match in spec.findAll(pattern):
-    matches.add(spec[match.group(0)])
-
-  return matches
+  let content = parseHcl(spec)
+  result = content.getBlocksOfType("job")[0].getTasks()
