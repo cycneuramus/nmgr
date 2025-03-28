@@ -1,33 +1,80 @@
-import std/[algorithm, logging, os, sequtils, strformat, strutils, tables]
-import ./nmgr/[action, cli, config, jobs, nomad, target]
-import pkg/cligen
+import std/[logging, os, sequtils, strformat, strutils, tables]
+import ./nmgr/[action, config, jobs, nomad, target]
+import pkg/argparse
 
-const
-  cligenHelp = toHelpTable(cliOpts)
-  cligenShort = toShortTable(cliOpts)
-
-proc main(
-    # TODO: demand explicit positional args for action / target
-    args: seq[string],
-    # TODO: default text is too verbose
-    config: string = "",
-    dry_run: bool = false,
-    detach: bool = false,
-    purge: bool = false,
-    verbose: bool = false,
-    completion: bool = false,
-    version: bool = false,
-    list_actions: bool = false,
-    list_targets: bool = false,
-    list_options: bool = false,
-) =
-  ## Nomad job manager CLI
-
+proc main() =
   const targetRegistry = initTargetRegistry()
   const actionRegistry = initActionRegistry()
 
+  var parser = newParser("nmgr"):
+    help("Nomad job manager")
+
+    # Global flags
+    flag("-n", "--dry-run", help = "Simulate execution")
+    flag("-d", "--detach", help = "Run jobs without waiting for completion")
+    flag("-p", "--purge", help = "Completely remove jobs when stopping")
+    flag("-v", "--verbose", help = "Show detailed output")
+    flag("--version", help = "Show program version and exit", shortcircuit = true)
+    flag("--completion", help = "Install Bash completion script", shortcircuit = true)
+    flag(
+      "--list-actions",
+      help = "List all available actions", # TODO: auto-fill actions?
+      hidden = true,
+      shortcircuit = true,
+    )
+    flag(
+      "--list-targets",
+      help = "List all available targets", # TODO: auto-fill actions?
+      hidden = true,
+      shortcircuit = true,
+    )
+    flag(
+      "--list-options",
+      help = "List all available options",
+      hidden = true,
+      shortcircuit = true,
+    )
+
+    option("-c", "--config", help = "Path to config file")
+
+    arg("action", help = "Action to perform")
+    arg("target", help = "Target to operate on")
+
+  let args =
+    try:
+      parser.parse()
+    except ShortCircuit as e:
+      if e.flag == "argparse_help":
+        echo e.help
+        quit(0)
+      if e.flag == "version":
+        echo "version not implemented"
+        quit(0)
+      if e.flag == "completion":
+        echo "completion not implemented"
+        quit(0)
+      if e.flag == "list_actions":
+        for a in actionRegistry.keys:
+          echo a
+        quit(0)
+      if e.flag == "list_targets":
+        for t in targetRegistry.keys:
+          echo t
+        # TODO: figure out how to access these
+        # for f in parsedConfig.filters.keys:
+        #   echo f
+        quit(0)
+      if e.flag == "list_options":
+        echo "not implemented"
+        quit(0)
+      else:
+        raise
+    except UsageError as e:
+      echo fmt"Error parsing arguments: {e.msg}"
+      quit(1)
+
   let
-    logLevel = if verbose: lvlDebug else: lvlInfo
+    logLevel = if args.verbose: lvlDebug else: lvlInfo
     logger = newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
   addHandler(logger)
 
@@ -36,47 +83,18 @@ proc main(
     quit(1)
 
   let
-    defaultConfigPath: string =
+    defaultConfigPath =
       getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
-    parsedConfig = if config != "": config.parse else: defaultConfigPath.parse
-
-  if version:
-    # TODO: implement version check
-    info "not implemented"
-    quit(0)
-  if completion:
-    # TODO: install completion script
-    info "not implemented"
-    quit(0)
-
-  # Short-circuits for hidden bash completion flags
-  if list_actions:
-    for a in actionRegistry.keys:
-      echo a
-    quit(0)
-  if list_targets:
-    for t in targetRegistry.keys:
-      echo t
-    for f in parsedConfig.filters.keys:
-      echo f
-    quit(0)
-  if list_options:
-    let
-      longOpts = cliOpts.mapIt("--" & $it.key.replace('_', '-')).sorted()
-      shortOpts = cliOpts.filterIt(it.short != '\0').mapIt("-" & it.short).sorted()
-    echo longOpts.join("\n")
-    echo shortOpts.join("\n")
-    quit(0)
-
-  if args.len < 2:
-    raise newException(HelpError, "Missing arguments.\n\n${HELP}")
+    configPath = args.config_opt.get(otherwise = defaultConfigPath)
+    parsedConfig = configPath.parse()
 
   let
-    action = args[0]
-    target = args[1]
+    action = args.action
+    target = args.target
     allJobs = findJobs(parsedConfig)
-    nomadClient =
-      NomadClient(config: parsedConfig, dryRun: dry_run, detach: detach, purge: purge)
+    nomadClient = NomadClient(
+      config: parsedConfig, dryRun: args.dry_run, detach: args.detach, purge: args.purge
+    )
     filteredJobs =
       # 'find' action should be treated as an on-the-fly config filter for now
       if action == "find":
@@ -95,5 +113,4 @@ proc main(
     quit(1)
 
 when isMainModule:
-  clCfg.helpSyntax = ""
-  dispatch(main, cmdName = "nmgr", help = cligenHelp, short = cligenShort)
+  main()
