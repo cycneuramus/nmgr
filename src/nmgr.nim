@@ -78,11 +78,15 @@ proc main(
     nomadClient =
       NomadClient(config: parsedConfig, dryRun: dry_run, detach: detach, purge: purge)
     filteredJobs =
-      try:
-        target.filter(allJobs, targetRegistry, parsedConfig)
-      except CatchableError as e:
-        fatal fmt"Error filtering on target: {e.msg}"
-        quit(1)
+      # 'find' action should be treated as an on-the-fly config filter for now
+      if action == "find":
+        configFilter(target)(allJobs, parsedConfig)
+      else:
+        try:
+          target.filter(allJobs, targetRegistry, parsedConfig)
+        except CatchableError as e:
+          fatal fmt"Error filtering on target: {e.msg}"
+          quit(1)
 
   try:
     action.handle(actionRegistry, filteredJobs, nomadClient, parsedConfig)

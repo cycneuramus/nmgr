@@ -2,7 +2,7 @@ import std/[algorithm, sequtils, strformat, tables, with]
 import ./[config, jobs, registry]
 
 type
-  TargetFilter = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
+  TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
   TargetNotFoundError = object of CatchableError
 
 using
@@ -24,11 +24,18 @@ func allFilter(jobs, config): seq[NomadJob] =
   ## Filters on all (both infra and service) jobs, ordering infra jobs first
   result = jobs.infraFilter(config) & jobs.servicesFilter(config)
 
-func configFilter(target): TargetFilter =
+func configFilter*(target): TargetFilter =
   ## Filters on jobs matching config-defined patterns
   # configFilter is a special case needing a filter name param, whence the closure
   return proc(jobs, config): seq[NomadJob] =
-    let filter = config.filters[target]
+    let filter =
+      try:
+        config.filters[target]
+      except KeyError:
+        # On-the-fly filter fallback for 'find' action
+        # TODO: this feels like a dirty hack
+        Filter(pattern: target)
+
     for job in jobs:
       if filter.excludeInfra and job.name in config.infraJobs:
         continue
