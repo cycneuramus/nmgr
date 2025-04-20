@@ -6,7 +6,6 @@ type
     pattern*: string
     extendedSearch*: bool
     excludeInfra*: bool
-    isRegex*: bool
 
   Config* = object
     baseDir*: Path
@@ -42,7 +41,6 @@ proc parse*(configPath: string): Config =
         pattern: filter.getOrDefault("pattern", ""),
         extendedSearch: filter.getOrDefault("extended_search", "false").parseBool,
         excludeInfra: filter.getOrDefault("exclude_infra", "false").parseBool,
-        isRegex: filter.getOrDefault("is_regex", "false").parseBool,
       )
 
   return config

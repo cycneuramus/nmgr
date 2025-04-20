@@ -2,7 +2,6 @@
 
 import std/[dirs, logging, options, paths, strformat, strutils]
 import ./[config, hclparser]
-import pkg/regex
 
 const specExts = [".hcl", ".nomad"]
 
@@ -35,21 +34,9 @@ proc matchesFilter*(
     job: NomadJob, filter: Filter, paths: seq[Path], config: Config
 ): bool =
   ## Checks if any file in paths contains a line matching the pattern
-
-  let matchesPattern: proc(line: string): bool =
-    # TODO: actually test, or perhaps just remove regex support
-    if filter.isRegex:
-      let pattern = re2(filter.pattern)
-      var match: RegexMatch2
-      proc(line: string): bool =
-        find(line, pattern, match)
-    else:
-      proc(line: string): bool =
-        line.contains(filter.pattern)
-
   for path in paths:
     for line in lines($path):
-      if line.matchesPattern:
+      if line.contains(filter.pattern):
         return true
 
   return false
