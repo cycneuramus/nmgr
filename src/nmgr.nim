@@ -1,6 +1,42 @@
-import std/[logging, os, parsecfg, sequtils, streams, strformat, strutils, tables]
+import
+  std/[
+    dirs, logging, files, os, parsecfg, paths, sequtils, streams, strformat, strutils,
+    tables,
+  ]
 import ./nmgr/[action, config, jobs, nomad, target]
 import pkg/argparse
+
+proc genCompletion() =
+  const completionScript = staticRead("../data/completion.bash")
+  let
+    dataDir = getEnv("XDG_DATA_HOME", getHomeDir() / ".local" / "share")
+    scriptPath = Path(dataDir / "bash-completion" / "completions" / "nmgr")
+
+  createDir(scriptPath.parentDir)
+
+  var writeNeeded = true
+  if fileExists(scriptPath):
+    let cur = readFile($scriptPath).strip()
+    if cur == completionScript.strip():
+      echo fmt"Completion script is already up-to-date at {scriptPath}"
+      writeNeeded = false
+    else:
+      echo fmt"Updating completion script at {scriptPath}"
+
+  if not writeNeeded:
+    return
+
+  writeFile($scriptPath, completionScript)
+  when defined(posix):
+    setFilePermissions(
+      $scriptPath,
+      {
+        fpUserRead, fpUserWrite, fpUserExec, fpGroupRead, fpGroupExec, fpOthersRead,
+        fpOthersExec,
+      },
+    )
+
+  echo fmt"Bash completion script installed at {scriptPath}"
 
 proc main() =
   const version = staticRead("../nmgr.nimble").newStringStream.loadConfig
@@ -45,7 +81,7 @@ proc main() =
     arg("action", help = "Action to perform") # TODO: auto-fill actions?
     arg("target", help = "Target to operate on") # TODO: auto-fill targets?
 
-  # For the benefit of --list-targets config filters
+  # HACK: Make config filters available for --list-targets before config parsing
   proc findConfigPath(): string =
     let argv = commandLineParams()
     for i, param in argv:
@@ -76,7 +112,7 @@ proc main() =
         echo version
         quit(0)
       if e.flag == "completion":
-        echo "completion not implemented" # TODO:
+        genCompletion()
         quit(0)
       if e.flag == "list_actions":
         for a in actionRegistry.keys:
