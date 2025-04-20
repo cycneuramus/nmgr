@@ -123,7 +123,7 @@ proc editHandler(jobs, nomad, config): void =
     return
 
   try:
-    discard execShellCmd(fmt "{editor} {spec}")
+    discard execShellCmd(fmt "{editor} '{spec}'")
   except OSError:
     error fmt"Failed to execute {editor}"
 
