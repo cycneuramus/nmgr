@@ -9,7 +9,6 @@ proc main() =
   var parser = newParser("nmgr"):
     help("Nomad job manager")
 
-    # Global flags
     flag("-n", "--dry-run", help = "Simulate execution")
     flag("-d", "--detach", help = "Run jobs without waiting for completion")
     flag("-p", "--purge", help = "Completely remove jobs when stopping")
@@ -60,12 +59,12 @@ proc main() =
       if e.flag == "list_targets":
         for t in targetRegistry.keys:
           echo t
-        # TODO: figure out how to access these
+        # FIXME: figure out how to access these
         # for f in parsedConfig.filters.keys:
         #   echo f
         quit(0)
       if e.flag == "list_options":
-        echo "not implemented"
+        echo "not implemented" # TODO
         quit(0)
       else:
         raise
@@ -76,10 +75,11 @@ proc main() =
   let
     logLevel = if args.verbose: lvlDebug else: lvlInfo
     logger = newConsoleLogger(fmtStr = "$levelname: ", levelThreshold = logLevel)
+
   addHandler(logger)
 
   if findExe("nomad").isEmptyOrWhitespace:
-    fatal fmt"`nomad` executable not found"
+    fatal fmt"'nomad' executable not found"
     quit(1)
 
   let
@@ -96,7 +96,7 @@ proc main() =
       config: parsedConfig, dryRun: args.dry_run, detach: args.detach, purge: args.purge
     )
     filteredJobs =
-      # 'find' action should be treated as an on-the-fly config filter for now
+      # NOTE: 'find' action is treated as an on-the-fly config filter for now
       if action == "find":
         configFilter(target)(allJobs, parsedConfig)
       else:

@@ -32,8 +32,7 @@ func configFilter*(target): TargetFilter =
       try:
         config.filters[target]
       except KeyError:
-        # On-the-fly filter fallback for 'find' action
-        # TODO: this feels like a dirty hack
+        # HACK: On-the-fly filter fallback for 'find' action
         Filter(pattern: target)
 
     for job in jobs:

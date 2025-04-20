@@ -6,7 +6,7 @@ type HclAttr* = object
   value*: string
 
 ## Represents a named or unnamed block (e.g. `job "name" { ... }`)
-## Since this is a tree, so we want a ref so as not to store full copies
+## Since this is a tree, we want a ref so as not to store full copies
 type HclBlock* = ref object
   blockType*: string # e.g. "job", "task", "locals"
   name*: Option[string] # Some("name") if named like `job "name"`

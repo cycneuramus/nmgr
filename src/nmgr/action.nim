@@ -1,4 +1,4 @@
-import std/[logging, paths, strformat, strutils, tables, with]
+import std/[logging, os, paths, strformat, strutils, tables, with]
 import ./[config, jobs, nomad, registry]
 
 type
@@ -109,6 +109,24 @@ proc reconcileHandler(jobs, nomad, config): void =
     info fmt"Reconciling job {job.name}: image changed. Restarting..."
     nomad.runJob(job)
 
+proc editHandler(jobs, nomad, config): void =
+  if jobs.len > 1:
+    error "Job specifications cannot be edited more than one at a time"
+    return
+
+  let job = jobs[0]
+  let spec = job.specPath
+
+  let editor = getEnv("EDITOR")
+  if editor.len == 0:
+    error "'$EDITOR environment variable not set"
+    return
+
+  try:
+    discard execShellCmd(fmt "{editor} {spec}")
+  except OSError:
+    error fmt"Failed to execute {editor}"
+
 func initActionRegistry*(): Registry[ActionHandler] =
   var registry = ActionHandler.initRegistry
   with registry:
@@ -120,6 +138,7 @@ func initActionRegistry*(): Registry[ActionHandler] =
     add("logs", logsHandler)
     add("exec", execHandler)
     add("reconcile", reconcileHandler)
+    add("edit", editHandler)
   return registry
 
 proc handle*(
