@@ -1,8 +1,11 @@
-import std/[logging, os, sequtils, strformat, strutils, tables]
+import std/[logging, os, parsecfg, sequtils, streams, strformat, strutils, tables]
 import ./nmgr/[action, config, jobs, nomad, target]
 import pkg/argparse
 
 proc main() =
+  const version = staticRead("../nmgr.nimble").newStringStream.loadConfig
+    .getSectionValue("", "version")
+
   const targetRegistry = initTargetRegistry()
   const actionRegistry = initActionRegistry()
 
@@ -47,10 +50,10 @@ proc main() =
         echo e.help
         quit(0)
       if e.flag == "version":
-        echo "version not implemented"
+        echo version
         quit(0)
       if e.flag == "completion":
-        echo "completion not implemented"
+        echo "completion not implemented" # TODO:
         quit(0)
       if e.flag == "list_actions":
         for a in actionRegistry.keys:
