@@ -9,6 +9,9 @@ proc main() =
   const targetRegistry = initTargetRegistry()
   const actionRegistry = initActionRegistry()
 
+  let defaultConfigPath =
+    getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+
   var parser = newParser("nmgr"):
     help("Nomad job manager")
 
@@ -20,13 +23,13 @@ proc main() =
     flag("--completion", help = "Install Bash completion script", shortcircuit = true)
     flag(
       "--list-actions",
-      help = "List all available actions", # TODO: auto-fill actions?
+      help = "List all available actions",
       hidden = true,
       shortcircuit = true,
     )
     flag(
       "--list-targets",
-      help = "List all available targets", # TODO: auto-fill actions?
+      help = "List all available targets",
       hidden = true,
       shortcircuit = true,
     )
@@ -39,8 +42,16 @@ proc main() =
 
     option("-c", "--config", help = "Path to config file")
 
-    arg("action", help = "Action to perform")
-    arg("target", help = "Target to operate on")
+    arg("action", help = "Action to perform") # TODO: auto-fill actions?
+    arg("target", help = "Target to operate on") # TODO: auto-fill targets?
+
+  # For the benefit of --list-targets config filters
+  proc findConfigPath(): string =
+    let argv = commandLineParams()
+    for i, param in argv:
+      if param in ["-c", "--config"] and i + 1 < argv.len:
+        return argv[i + 1]
+    return defaultConfigPath
 
   let args =
     try:
@@ -60,11 +71,11 @@ proc main() =
           echo a
         quit(0)
       if e.flag == "list_targets":
+        let config = parse(findConfigPath())
         for t in targetRegistry.keys:
           echo t
-        # FIXME: figure out how to access these
-        # for f in parsedConfig.filters.keys:
-        #   echo f
+        for f in config.filters.keys:
+          echo f
         quit(0)
       if e.flag == "list_options":
         echo "not implemented" # TODO
@@ -86,8 +97,6 @@ proc main() =
     quit(1)
 
   let
-    defaultConfigPath =
-      getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
     configPath = args.config_opt.get(otherwise = defaultConfigPath)
     parsedConfig = configPath.parse()
 
