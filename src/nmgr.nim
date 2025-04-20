@@ -53,6 +53,18 @@ proc main() =
         return argv[i + 1]
     return defaultConfigPath
 
+  # HACK: parse help text for --list-options
+  func listOpts(help: string): seq[string] =
+    for line in help.splitLines:
+      let trimmed = line.strip()
+      if trimmed.startsWith('-'):
+        for chunk in trimmed.split({' ', ','}):
+          if chunk.len > 1 and chunk[0] == '-':
+            # Remove anything after '=' (e.g. "--config=CONFIG")
+            let clean = chunk.split('=')[0]
+            result.add(clean)
+    result = result.sorted()
+
   let args =
     try:
       parser.parse()
@@ -78,7 +90,7 @@ proc main() =
           echo f
         quit(0)
       if e.flag == "list_options":
-        echo "not implemented" # TODO
+        echo listOpts(parser.help).join("\n")
         quit(0)
       else:
         raise
