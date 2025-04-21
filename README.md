@@ -1,1 +1,1 @@
-*WIP: Nim rewrite*
+*This Nim rewrite branch is kept for historical reasons.*
