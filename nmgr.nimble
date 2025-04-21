@@ -11,5 +11,4 @@ bin = @["nmgr"]
 
 requires "nim >= 2.2.2"
 
-requires "regex >= 0.26.3"
 requires "argparse >= 4.0.2"
