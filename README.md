@@ -135,4 +135,5 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-**NOTE**: Some of these examples make use of custom target filters (`nas`, `jfs`, `db`). These can be defined in the [configuration file](https://github.com/cycneuramus/nmgr/blob/master/data/config) that will be generated on first run.
+> [!NOTE]
+> Some of these examples make use of custom target filters (`nas`, `jfs`, `db`). These can be defined in the [configuration file](https://github.com/cycneuramus/nmgr/blob/master/data/config) that will be generated on first run.
