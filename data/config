@@ -1,0 +1,24 @@
+[general]
+
+# Nomad jobs base directory
+base_dir = "~/nomad"
+
+# Directories to ignore when discovering job specs
+ignore_dirs = ".git .github"
+
+# File patterns considered as job configs
+job_config_patterns = ".env .toml .yml .yaml .sh .cfg .js .tpl"
+
+# Infrastructure jobs to treat more carefully (e.g. not auto-restart)
+# infra_jobs = "garage keydb haproxy caddy patroni"
+
+# Custom job filters
+# Example: jobs containing "/mnt/nas" in its spec
+# [filter.nas]
+# pattern = "/mnt/nas"
+# 
+# Example: jobs containing "15432" in its spec or accompanying config files, including infra jobs
+# [filter.db]
+# pattern = "15432"
+# extended_search = "true"
+# exclude_infra = "false"
