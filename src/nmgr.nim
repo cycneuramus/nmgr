@@ -8,6 +8,7 @@ import pkg/argparse
 
 proc genCompletion() =
   const completionScript = staticRead("../data/completion.bash")
+
   let
     dataDir = getEnv("XDG_DATA_HOME", getHomeDir() / ".local" / "share")
     scriptPath = Path(dataDir / "bash-completion" / "completions" / "nmgr")
@@ -39,6 +40,7 @@ proc genCompletion() =
   echo fmt"Bash completion script installed at {scriptPath}"
 
 proc main() =
+  const defaultConfig = staticRead("../data/config")
   const version = staticRead("../nmgr.nimble").newStringStream.loadConfig
     .getSectionValue("", "version")
 
@@ -47,6 +49,10 @@ proc main() =
 
   let defaultConfigPath =
     getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+  if not fileExists(defaultConfigPath):
+    createDir(defaultConfigPath.parentDir)
+    writeFile($defaultConfigPath, defaultConfig)
+    echo fmt"Generated default config at {defaultConfigPath}"
 
   var parser = newParser("nmgr"):
     help("Nomad job manager")
