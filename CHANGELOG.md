@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.0](https://github.com/cycneuramus/nmgr/compare/v0.3.1...v1.0.0) (2025-04-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* Complete rewrite in Nim
+
+### Features
+
+* Add 'edit' action ([c92ad86](https://github.com/cycneuramus/nmgr/commit/c92ad86078263dc912325bfc45953e551183a637))
+* Complete rewrite in Nim ([c92ad86](https://github.com/cycneuramus/nmgr/commit/c92ad86078263dc912325bfc45953e551183a637))
+
+
+### Bug Fixes
+
+* Explicitly depend on 'nomad' executable ([c92ad86](https://github.com/cycneuramus/nmgr/commit/c92ad86078263dc912325bfc45953e551183a637))
+
+
+### Performance Improvements
+
+* Forego regex matching and parse HCL directly ([c92ad86](https://github.com/cycneuramus/nmgr/commit/c92ad86078263dc912325bfc45953e551183a637))
+* Ingest default config and completion script at compile-time ([c92ad86](https://github.com/cycneuramus/nmgr/commit/c92ad86078263dc912325bfc45953e551183a637))
+* Populate 'action' and 'target' registries at compile-time ([c92ad86](https://github.com/cycneuramus/nmgr/commit/c92ad86078263dc912325bfc45953e551183a637))
+
 ## [0.3.1](https://github.com/cycneuramus/nmgr/compare/v0.3.0...v0.3.1) (2025-03-15)
 
 
