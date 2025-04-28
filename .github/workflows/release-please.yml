@@ -29,7 +29,7 @@ jobs:
       - name: Update .nimble version in release PR branch
         if: steps.release.outputs.pr != ''
         run: |
-          set -euo pipefail
+          set -euox pipefail
 
           # Find the open PR created by release-please (matching title pattern or label)
           PR_JSON=$(gh pr list --state open --label "autorelease: pending" --json number,headRefName,title --jq '.[0]')
