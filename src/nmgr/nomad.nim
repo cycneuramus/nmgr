@@ -81,7 +81,7 @@ proc inspectJob(self; jobName: string): string =
 
 func extractImages(spec: string): string =
   let content = parseHcl(spec)
-  result = content.extractImages().join("\n")
+  result = content.getImages().join("\n")
 
 proc getLiveImage*(self; jobName: string): string =
   result = extractImages(self.inspectJob(jobName))

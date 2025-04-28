@@ -159,7 +159,7 @@ func getTasks*(hclBlock: HclBlock): seq[string] =
     result.add(child.getTasks())
 
 # Extract container image values from the `locals` block
-func extractImages*(doc: HclDocument): seq[string] =
+func getImages*(doc: HclDocument): seq[string] =
   for hclBlock in doc.rootBlocks:
     if hclBlock.blockType != "locals" and hclBlock.blockType != "config":
       continue
