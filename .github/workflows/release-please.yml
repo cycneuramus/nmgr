@@ -31,6 +31,9 @@ jobs:
         run: |
           set -euox pipefail
 
+          # HACK: let PR settle
+          sleep 5
+
           # Find the open PR created by release-please (matching title pattern or label)
           PR_JSON=$(gh pr list --state open --label "autorelease: pending" --json number,headRefName,title --jq '.[0]')
 
