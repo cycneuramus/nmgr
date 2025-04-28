@@ -6,5 +6,8 @@
   "always-update": true,
   "packages": {
     ".": {}
-  }
+  },
+  "extra-files": [
+    "nmgr.nimble"
+  ]
 }

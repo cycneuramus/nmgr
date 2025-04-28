@@ -13,11 +13,6 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Required to push back to PR branches
-
       - name: Run release-please
         id: release
         uses: googleapis/release-please-action@v4
@@ -25,39 +20,3 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
-
-      - name: Update .nimble version in release PR branch
-        if: steps.release.outputs.pr != ''
-        run: |
-          set -euox pipefail
-
-          # HACK: let PR settle
-          sleep 5
-
-          # Find the open PR created by release-please (matching title pattern or label)
-          PR_JSON=$(gh pr list --state open --label "autorelease: pending" --json number,headRefName,title --jq '.[0]')
-
-          PR_NUMBER=$(echo "$PR_JSON" | jq -r .number)
-          PR_BRANCH=$(echo "$PR_JSON" | jq -r .headRefName)
-          VERSION=$(echo "$PR_JSON" | jq -r .title | sed -n 's/^chore: Release //p')
-
-          if [[ -z "$PR_BRANCH" || -z "$VERSION" ]]; then
-            echo "Error: Could not extract PR branch or version"
-            exit 1
-          fi
-
-          echo "Fetching PR branch: $PR_BRANCH"
-          git fetch origin "$PR_BRANCH"
-          git checkout "$PR_BRANCH"
-
-          echo "Updating .nimble file to version $VERSION"
-          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" ./nmgr.nimble
-
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add ./nmgr.nimble
-          git commit --amend --no-edit
-          git push --force-with-lease origin "$PR_BRANCH"
-
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
