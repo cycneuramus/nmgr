@@ -4,6 +4,7 @@
   "pull-request-title-pattern": "chore: Release ${version}",
   "include-v-in-tag": true,
   "always-update": true,
+  "changelog-path": ".github/CHANGELOG.md",
   "packages": {
     ".": {}
   },
