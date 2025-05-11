@@ -8,7 +8,21 @@ This tool started as a set of Bash convenience functions which, in time, slowly 
 
 ## Installation
 
-`nimble install nmgr`
+**Using Nimble**
+
+```bash
+nimble install nmgr
+```
+
+**Compiling from source**
+
+```bash
+nim c -d:release src/nmgr.nim
+```
+
+**Downloading binary**
+
+Pre-built binaries for Linux (AMD64) are available on the [release page](https://github.com/cycneuramus/nmgr/releases).
 
 ## Usage
 
