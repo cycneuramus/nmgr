@@ -1,4 +1,4 @@
-import options, sequtils, strutils
+import std/[options, sequtils, strutils]
 
 ## Represents a key-value pair inside a block
 type HclAttr* = object
