@@ -148,10 +148,6 @@ proc main() =
 
   addHandler(logger)
 
-  if findExe("nomad").isEmptyOrWhitespace:
-    fatal fmt"'nomad' executable not found"
-    quit(1)
-
   let
     configPath = args.config_opt.get(otherwise = defaultConfigPath)
     parsedConfig = configPath.parse()

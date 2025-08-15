@@ -9,6 +9,7 @@ type
 
   Config* = object
     baseDir*: Path
+    nomadUrl*: string
     ignoreDirs*: seq[Path]
     infraJobs*: seq[string]
     jobConfigPatterns*: seq[string]
@@ -25,6 +26,7 @@ proc parse*(configPath: string): Config =
 
   with config:
     baseDir = parser.getSectionValue("general", "base_dir", "").Path.expandTilde
+    nomadUrl = parser.getSectionValue("general", "nomad_url", "http://127.0.0.1:4646")
     ignoreDirs =
       parser.getSectionValue("general", "ignore_dirs", "").split(" ").mapIt(it.Path)
     infraJobs = parser.getSectionValue("general", "infra_jobs", "").split(" ")

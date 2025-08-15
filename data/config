@@ -3,6 +3,9 @@
 # Nomad jobs base directory
 base_dir = "~/nomad"
 
+# Nomad API endpoint
+nomad_url = "http://127.0.0.1:4646"
+
 # Directories to ignore when discovering job specs
 ignore_dirs = ".git .github"
 
