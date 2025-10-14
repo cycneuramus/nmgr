@@ -48,6 +48,8 @@ proc runJob*(self; job: NomadJob): void =
 
 proc stopJob*(self; jobName: string): void =
   var cmd = @["nomad", "stop"]
+  if self.detach:
+    cmd.add("-detach")
   if self.purge:
     cmd.add("-purge")
   cmd.add(jobName)
