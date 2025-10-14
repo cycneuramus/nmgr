@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/cycneuramus/nmgr/compare/v1.0.0...v1.0.1) (2025-10-14)
+
+
+### Bug Fixes
+
+* Properly support -d flag on 'down' ([7f9e748](https://github.com/cycneuramus/nmgr/commit/7f9e748b8a4d1b9d29a6bc82f85d989a9d6e8bab))
+
 ## [1.0.0](https://github.com/cycneuramus/nmgr/compare/v0.3.1...v1.0.0) (2025-04-21)
 
 
