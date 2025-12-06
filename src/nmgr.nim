@@ -159,14 +159,18 @@ proc main() =
   let
     action = args.action
     target = args.target
-    allJobs = findJobs(parsedConfig)
+    allJobs = getDefinedJobs(parsedConfig)
+    # if arg == "down": nmgr list running ...
     nomadClient = NomadClient(
       config: parsedConfig, dryRun: args.dry_run, detach: args.detach, purge: args.purge
     )
+    runningJobs = getRunningJobs(nomadClient)
     filteredJobs =
       # NOTE: 'find' action is treated as an on-the-fly config filter for now
       if action == "find":
         configFilter(target)(allJobs, parsedConfig)
+      elif action == "down":
+        configFilter(target)(runningJobs, parsedConfig)
       else:
         try:
           target.filter(allJobs, targetRegistry, parsedConfig)

@@ -41,7 +41,7 @@ proc matchesFilter*(
 
   return false
 
-proc findJobs*(config: Config): seq[NomadJob] =
+proc getDefinedJobs*(config: Config): seq[NomadJob] =
   ## Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
     error fmt"Base directory not found: {config.baseDir.string}"

@@ -95,3 +95,10 @@ proc getTasks*(self; jobName: string): seq[string] =
   let spec = self.inspectJob(jobName)
   let content = parseHcl(spec)
   result = content.getBlocksOfType("job")[0].getTasks()
+
+proc getRunningJobs*(self): seq[NomadJob] =
+  let cmd = @["nomad", "job", "inspect", "-t", "{{range .}}{{if eq .Status 'running'}}{{println .Name}}{{end}}{{end}"]
+  let output = self.executeCmd(cmd, captureOutput = true)
+  for job in output.splitLines():
+    if not job.isEmptyOrWhitespace():
+      result.add(NomadJob(name: job))
