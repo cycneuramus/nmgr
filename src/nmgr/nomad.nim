@@ -1,9 +1,9 @@
-import std/[httpclient, json, logging, osproc, paths, strformat, strutils, uri]
+import
+  std/[httpclient, json, logging, osproc, paths, sequtils, strformat, strutils, uri]
 import ./[hclparser, jobs]
 
 type NomadClient* = object
   dryRun*: bool
-  detach*: bool # unused since migration to HTTP API
   purge*: bool
   server*: string
 
@@ -15,15 +15,14 @@ proc newHttp(self): HttpClient =
   return client
 
 proc apiUrl(self; path: string, query: seq[(string, string)] = @[]): string =
-  if query.len > 0:
-    warn fmt"apiUrl: Empty query"
-    return
   var uri = parseUri(self.server)
   uri.path =
     if path.startsWith("/"):
       path
     else:
       "/" & path
+  if query.len > 0:
+    uri.query = encodeQuery(query)
   return $uri
 
 proc postJson(
@@ -32,21 +31,37 @@ proc postJson(
   let url = self.apiUrl(path, query)
   let httpClient = self.newHttp()
   debug fmt"POST {url}"
+  debug fmt"Request body: {body}"
 
   if self.dryRun:
     info fmt"[DRY RUN] POST {url}"
     return %*{}
 
   let response = httpClient.request(url, httpMethod = HttpPost, body = $body)
-  parseJson(response.body)
+  debug fmt"Response status: {response.status}"
+
+  try:
+    result = parseJson(response.body)
+  except Exception as e:
+    error fmt"Failed to parse JSON response: {e.msg}"
+    result = %*{}
 
 proc getJson(self; path: string, query: seq[(string, string)] = @[]): JsonNode =
   let url = self.apiUrl(path, query)
   let httpClient = self.newHttp()
   debug fmt"GET {url}"
 
-  let response = httpClient.getContent(url)
-  parseJson(response)
+  try:
+    let response = httpClient.request(url, httpMethod = HttpGet)
+    debug fmt"Response status: {response.status}"
+
+    if response.status.startsWith("200") or response.status.startsWith("204"):
+      result = parseJson(response.body)
+    else:
+      result = %*{}
+  except Exception as e:
+    error fmt"Failed to get JSON response: {e.msg}"
+    result = %*{}
 
 proc deleteJson(self; path: string, query: seq[(string, string)] = @[]): JsonNode =
   let url = self.apiUrl(path, query)
@@ -58,7 +73,13 @@ proc deleteJson(self; path: string, query: seq[(string, string)] = @[]): JsonNod
     return %*{}
 
   let response = httpClient.request(url, httpMethod = HttpDelete)
-  parseJson(response.body)
+  debug fmt"Response status: {response.status}"
+
+  try:
+    result = parseJson(response.body)
+  except Exception as e:
+    error fmt"Failed to parse JSON response: {e.msg}"
+    result = %*{}
 
 # TODO: remove once migration to HTTP API is complete
 proc executeCmd(
@@ -186,25 +207,20 @@ proc getTasks*(self; jobName: string): seq[string] =
         result.add task["Name"].getStr("")
 
 proc getRunningJobs*(self): seq[NomadJob] =
-  try:
-    let jobs = self.getJson("/v1/jobs")
-    if jobs.kind != JArray:
-      debug fmt"getRunningJobs: response is not an array"
-      return
-    var runningNames: seq[string] = @[]
-    for job in jobs:
-      if job.kind != JObject:
+  let jobs = self.getJson("/v1/jobs")
+  if jobs.kind != JArray:
+    debug fmt"getRunningJobs: response is not an array"
+    return
+  for job in jobs:
+    if job.kind != JObject:
+      continue
+    if not job.hasKey("Status"):
+      continue
+    let status = job["Status"].getStr.toLowerAscii
+    if status == "running":
+      if not job.hasKey("Name"):
         continue
-      if not job.hasKey("Status"):
-        continue
-      let status = job["Status"].getStr.toLowerAscii
-      if status == "running":
-        if not job.hasKey("Name"):
-          continue
-        let name = job["Name"].getStr
-        if name.len > 0:
-          runningNames.add(name)
-          result.add(NomadJob(name: name))
-    debug fmt"Running jobs from API: {runningNames}"
-  except CatchableError as e:
-    warn fmt"Error fetching running jobs: {e.msg}"
+      let name = job["Name"].getStr
+      if name.len > 0:
+        result.add(NomadJob(name: name))
+  debug fmt"Running jobs from API: {result.mapIt(it.name)}"

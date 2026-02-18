@@ -163,7 +163,6 @@ proc main() =
     allJobs = getDefinedJobs(parsedConfig)
     nomad = NomadClient(
       dryRun: args.dry_run,
-      detach: args.detach,
       purge: args.purge,
       server: parsedConfig.nomadUrl,
     )
@@ -173,8 +172,12 @@ proc main() =
     if action == "find":
       configFilter(target)(allJobs, parsedConfig)
     elif action == "down":
-      let runningJobs = getRunningJobs(nomad)
-      target.filter(runningJobs, targetRegistry, parsedConfig)
+      try:
+        let runningJobs = getRunningJobs(nomad)
+        target.filter(runningJobs, targetRegistry, parsedConfig)
+      except CatchableError as e:
+        fatal fmt"Error fetching running jobs: {e.msg}"
+        quit(1)
     else:
       try:
         target.filter(allJobs, targetRegistry, parsedConfig)
