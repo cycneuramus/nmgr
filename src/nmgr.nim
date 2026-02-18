@@ -165,7 +165,7 @@ proc main() =
       dryRun: args.dry_run,
       detach: args.detach,
       purge: args.purge,
-      server: parsedConfig.nomadUrl
+      server: parsedConfig.nomadUrl,
     )
 
   let filteredJobs =

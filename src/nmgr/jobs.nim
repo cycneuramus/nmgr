@@ -37,7 +37,11 @@ proc matchesFilter*(
   for path in paths:
     if not fileExists(path):
       continue
-    let content = try: readFile($path) except IOError: continue
+    let content =
+      try:
+        readFile($path)
+      except IOError:
+        continue
     for line in content.splitLines:
       if line.contains(filter.pattern):
         return true

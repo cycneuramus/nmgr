@@ -14,15 +14,21 @@ proc newHttp(self): HttpClient =
   client.headers.add("Content-Type", "application/json")
   return client
 
-proc apiUrl(self; path: string; query: seq[(string, string)] = @[]): string =
+proc apiUrl(self; path: string, query: seq[(string, string)] = @[]): string =
   if query.len > 0:
     warn fmt"apiUrl: Empty query"
     return
   var uri = parseUri(self.server)
-  uri.path = if path.startsWith("/"): path else: "/" & path
+  uri.path =
+    if path.startsWith("/"):
+      path
+    else:
+      "/" & path
   return $uri
 
-proc postJson(self; path: string; body: JsonNode; query: seq[(string, string)] = @[]): JsonNode =
+proc postJson(
+    self; path: string, body: JsonNode, query: seq[(string, string)] = @[]
+): JsonNode =
   let url = self.apiUrl(path, query)
   let httpClient = self.newHttp()
   debug fmt"POST {url}"
@@ -34,7 +40,7 @@ proc postJson(self; path: string; body: JsonNode; query: seq[(string, string)] =
   let response = httpClient.request(url, httpMethod = HttpPost, body = $body)
   parseJson(response.body)
 
-proc getJson(self; path: string; query: seq[(string, string)] = @[]): JsonNode =
+proc getJson(self; path: string, query: seq[(string, string)] = @[]): JsonNode =
   let url = self.apiUrl(path, query)
   let httpClient = self.newHttp()
   debug fmt"GET {url}"
@@ -42,7 +48,7 @@ proc getJson(self; path: string; query: seq[(string, string)] = @[]): JsonNode =
   let response = httpClient.getContent(url)
   parseJson(response)
 
-proc deleteJson(self; path: string; query: seq[(string, string)] = @[]): JsonNode =
+proc deleteJson(self; path: string, query: seq[(string, string)] = @[]): JsonNode =
   let url = self.apiUrl(path, query)
   let httpClient = self.newHttp()
   debug fmt"DELETE {url}"
@@ -89,10 +95,7 @@ proc runJob*(self; job: NomadJob): void =
     warn fmt"Empty spec file for job {job.name}"
     return
 
-  let parseRequest = %*{
-    "JobHCL": specContent,
-    "Canonicalize": true
-  }
+  let parseRequest = %*{"JobHCL": specContent, "Canonicalize": true}
   let parsed = self.postJson("/v1/jobs/parse", parseRequest)
   if not parsed.hasKey("ID"):
     warn fmt"Parsed job missing ID; refusing to submit"
@@ -156,6 +159,7 @@ func extractImagesFromJson(jobJson: JsonNode): seq[string] =
         elif node.kind == JArray:
           for item in node.items:
             result = result & checkImage(item)
+
       result = result & checkImage(config)
 
 proc getLiveImage*(self; jobName: string): string =
