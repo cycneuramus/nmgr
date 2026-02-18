@@ -148,6 +148,7 @@ proc main() =
 
   addHandler(logger)
 
+  # TODO: remove once migration to HTTP API is complete
   if findExe("nomad").isEmptyOrWhitespace:
     fatal fmt"'nomad' executable not found"
     quit(1)
@@ -160,26 +161,29 @@ proc main() =
     action = args.action
     target = args.target
     allJobs = getDefinedJobs(parsedConfig)
-    # if arg == "down": nmgr list running ...
-    nomadClient = NomadClient(
-      config: parsedConfig, dryRun: args.dry_run, detach: args.detach, purge: args.purge
+    nomad = NomadClient(
+      dryRun: args.dry_run,
+      detach: args.detach,
+      purge: args.purge,
+      server: parsedConfig.nomadUrl
     )
-    runningJobs = getRunningJobs(nomadClient)
-    filteredJobs =
-      # NOTE: 'find' action is treated as an on-the-fly config filter for now
-      if action == "find":
-        configFilter(target)(allJobs, parsedConfig)
-      elif action == "down":
-        configFilter(target)(runningJobs, parsedConfig)
-      else:
-        try:
-          target.filter(allJobs, targetRegistry, parsedConfig)
-        except CatchableError as e:
-          fatal fmt"Error filtering on target: {e.msg}"
-          quit(1)
+
+  let filteredJobs =
+    # NOTE: 'find' action is treated as an on-the-fly config filter for now
+    if action == "find":
+      configFilter(target)(allJobs, parsedConfig)
+    elif action == "down":
+      let runningJobs = getRunningJobs(nomad)
+      target.filter(runningJobs, targetRegistry, parsedConfig)
+    else:
+      try:
+        target.filter(allJobs, targetRegistry, parsedConfig)
+      except CatchableError as e:
+        fatal fmt"Error filtering on target: {e.msg}"
+        quit(1)
 
   try:
-    action.handle(actionRegistry, filteredJobs, nomadClient, parsedConfig)
+    action.handle(actionRegistry, filteredJobs, nomad, parsedConfig)
   except CatchableError as e:
     fatal fmt"Error handling action: {e.msg}"
     quit(1)

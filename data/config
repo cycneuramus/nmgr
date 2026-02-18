@@ -3,6 +3,9 @@
 # Nomad jobs base directory
 base_dir = "~/nomad"
 
+# Nomad HTTP API URL
+nomad_url = "http://127.0.0.1:4646"
+
 # Directories to ignore when discovering job specs
 ignore_dirs = ".git .github"
 
@@ -16,7 +19,7 @@ job_config_patterns = ".env .toml .yml .yaml .sh .cfg .js .tpl"
 # Example: jobs containing "/mnt/nas" in its spec
 # [filter.nas]
 # pattern = "/mnt/nas"
-# 
+#
 # Example: jobs containing "15432" in its spec or accompanying config files, including infra jobs
 # [filter.db]
 # pattern = "15432"

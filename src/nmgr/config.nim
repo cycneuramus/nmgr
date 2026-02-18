@@ -13,6 +13,7 @@ type
     infraJobs*: seq[string]
     jobConfigPatterns*: seq[string]
     filters*: Table[string, Filter]
+    nomadUrl*: string
 
 proc parse*(configPath: string): Config =
   var config: Config
@@ -31,6 +32,7 @@ proc parse*(configPath: string): Config =
     jobConfigPatterns =
       parser.getSectionValue("general", "job_config_patterns", "").split(" ")
     filters = initTable[string, Filter]()
+    nomadUrl = parser.getSectionValue("general", "nomad_url", "http://127.0.0.1:4646")
 
   for section in parser.sections:
     if section.startsWith("filter."):

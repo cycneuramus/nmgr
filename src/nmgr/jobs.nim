@@ -1,6 +1,6 @@
 ## Represents and operates on Nomad jobs
 
-import std/[dirs, logging, options, paths, strformat, strutils]
+import std/[dirs, files, logging, options, paths, strformat, strutils]
 import ./[config, hclparser]
 
 const specExts = [".hcl", ".nomad"]
@@ -35,7 +35,10 @@ proc matchesFilter*(
 ): bool =
   ## Checks if any file in paths contains a line matching the pattern
   for path in paths:
-    for line in lines($path):
+    if not fileExists(path):
+      continue
+    let content = try: readFile($path) except IOError: continue
+    for line in content.splitLines:
       if line.contains(filter.pattern):
         return true
 
