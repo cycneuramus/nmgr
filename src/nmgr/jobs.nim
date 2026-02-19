@@ -15,6 +15,8 @@ proc readSpec*(specPath: string): string =
     result = readFile(specPath)
   except OSError as e:
     warn fmt"Unable to read spec file {specPath}: {e.msg}"
+  except IOError as e:
+    warn fmt"Unable to read spec file {specPath}: {e.msg}"
 
 proc getJobName(specPath: Path): string =
   let spec = readSpec($specPath)
