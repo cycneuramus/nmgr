@@ -17,8 +17,10 @@ suite "HCL Parser":
 
     let parsed = parseHcl(spec)
     let jobName = parsed.getJobName()
-    check jobName.isSome
-    check jobName.get == "test-job"
+
+    check:
+      jobName.isSome
+      jobName.get == "test-job"
 
   test "handle multiple root blocks":
     let spec = """
@@ -64,9 +66,10 @@ suite "HCL Parser":
     check jobBlocks.len == 1
 
     let tasks = jobBlocks[0].getTasks()
-    check tasks.len == 2
-    check tasks.contains("task-one")
-    check tasks.contains("task-two")
+    check:
+      tasks.len == 2
+      tasks.contains("task-one")
+      tasks.contains("task-two")
 
   test "strip line comments":
     let spec = """
@@ -79,8 +82,9 @@ suite "HCL Parser":
     let parsed = parseHcl(spec)
     let jobName = parsed.getJobName()
 
-    check jobName.isSome
-    check jobName.get == "comment-test"
+    check:
+      jobName.isSome
+      jobName.get == "comment-test"
 
   test "handle empty input":
     let parsed = parseHcl("")
@@ -99,8 +103,10 @@ suite "HCL Parser":
 
     let parsed = parseHcl(spec)
     let images = parsed.getImages()
-    check images.len == 1
-    check images[0] == "redis:7"
+
+    check:
+      images.len == 1
+      images[0] == "redis:7"
 
   test "extract images from locals map":
     let spec = """
@@ -114,9 +120,11 @@ suite "HCL Parser":
 
     let parsed = parseHcl(spec)
     let images = parsed.getImages()
-    check images.len == 2
-    check images.contains("nginx:alpine")
-    check images.contains("node:18")
+
+    check:
+      images.len == 2
+      images.contains("nginx:alpine")
+      images.contains("node:18")
 
   test "skip local variable references":
     let spec = """
@@ -127,6 +135,7 @@ suite "HCL Parser":
 
     let parsed = parseHcl(spec)
     let images = parsed.getImages()
+
     check images.len == 0
 
   test "handle nested blocks":
@@ -145,6 +154,8 @@ suite "HCL Parser":
 
     let parsed = parseHcl(spec)
     let jobBlocks = parsed.getBlocksOfType("job")
-    check jobBlocks.len == 1
-    check jobBlocks[0].children.len == 1
-    check jobBlocks[0].children[0].children.len == 2
+
+    check:
+      jobBlocks.len == 1
+      jobBlocks[0].children.len == 1
+      jobBlocks[0].children[0].children.len == 2
