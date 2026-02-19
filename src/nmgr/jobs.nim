@@ -21,7 +21,7 @@ proc getJobName(specPath: Path): string =
   let content = parseHcl(spec)
   result = content.getJobName.get("")
 
-proc findConfigs(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
+proc findConfigs*(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
   ## Finds configuration files in job directory
   for (kind, path) in walkDir(jobDir):
     if kind == pcFile:
@@ -55,7 +55,8 @@ proc getDefinedJobs*(config: Config): seq[NomadJob] =
     return
 
   for (kind, path) in walkDir(config.baseDir):
-    if kind != pcDir or path.splitFile.dir in config.ignoreDirs:
+    if kind != pcDir or path.extractFilename in config.ignoreDirs:
+      debug fmt"getDefinedJobs: Ignoring path: {path}"
       continue
 
     for (kind, path) in walkDir(path):
