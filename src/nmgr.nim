@@ -162,9 +162,7 @@ proc main() =
     target = args.target
     allJobs = getDefinedJobs(parsedConfig)
     nomad = NomadClient(
-      dryRun: args.dry_run,
-      purge: args.purge,
-      server: parsedConfig.nomadUrl,
+      config: parsedConfig, dryRun: args.dry_run, detach: args.detach, purge: args.purge
     )
 
   let filteredJobs =

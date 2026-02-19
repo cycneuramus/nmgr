@@ -1,11 +1,12 @@
 import
   std/[httpclient, json, logging, osproc, paths, sequtils, strformat, strutils, uri]
-import ./[hclparser, jobs]
+import ./[config, hclparser, jobs]
 
 type NomadClient* = object
+  config*: Config
   dryRun*: bool
   purge*: bool
-  server*: string
+  detach*: bool
 
 using self: NomadClient
 
@@ -15,7 +16,7 @@ proc newHttp(self): HttpClient =
   return client
 
 proc apiUrl(self; path: string, query: seq[(string, string)] = @[]): string =
-  var uri = parseUri(self.server)
+  var uri = parseUri(self.config.server)
   uri.path =
     if path.startsWith("/"):
       path
@@ -25,26 +26,27 @@ proc apiUrl(self; path: string, query: seq[(string, string)] = @[]): string =
     uri.query = encodeQuery(query)
   return $uri
 
-proc postJson(
-    self; path: string, body: JsonNode, query: seq[(string, string)] = @[]
-): JsonNode =
-  let url = self.apiUrl(path, query)
-  let httpClient = self.newHttp()
-  debug fmt"POST {url}"
-  debug fmt"Request body: {body}"
-
-  if self.dryRun:
-    info fmt"[DRY RUN] POST {url}"
-    return %*{}
-
-  let response = httpClient.request(url, httpMethod = HttpPost, body = $body)
-  debug fmt"Response status: {response.status}"
-
-  try:
-    result = parseJson(response.body)
-  except Exception as e:
-    error fmt"Failed to parse JSON response: {e.msg}"
-    result = %*{}
+# NOTE: disabled for now since job submission breaks on HCL2 functions such as file()
+# proc postJson(
+#     self; path: string, body: JsonNode, query: seq[(string, string)] = @[]
+# ): JsonNode =
+#   let url = self.apiUrl(path, query)
+#   let httpClient = self.newHttp()
+#   debug fmt"POST {url}"
+#   debug fmt"Request body: {body}"
+#
+#   if self.dryRun:
+#     info fmt"[DRY RUN] POST {url}"
+#     return %*{}
+#
+#   let response = httpClient.request(url, httpMethod = HttpPost, body = $body)
+#   debug fmt"Response status: {response.status}"
+#
+#   try:
+#     result = parseJson(response.body)
+#   except Exception as e:
+#     error fmt"Failed to parse JSON response: {e.msg}"
+#     result = %*{}
 
 proc getJson(self; path: string, query: seq[(string, string)] = @[]): JsonNode =
   let url = self.apiUrl(path, query)
@@ -54,11 +56,7 @@ proc getJson(self; path: string, query: seq[(string, string)] = @[]): JsonNode =
   try:
     let response = httpClient.request(url, httpMethod = HttpGet)
     debug fmt"Response status: {response.status}"
-
-    if response.status.startsWith("200") or response.status.startsWith("204"):
-      result = parseJson(response.body)
-    else:
-      result = %*{}
+    result = parseJson(response.body)
   except Exception as e:
     error fmt"Failed to get JSON response: {e.msg}"
     result = %*{}
@@ -111,24 +109,34 @@ proc executeCmd(
   discard process.waitForExit()
 
 proc runJob*(self; job: NomadJob): void =
-  let specContent = readFile($job.specPath)
-  if specContent.len == 0:
-    warn fmt"Empty spec file for job {job.name}"
-    return
+  var cmd = @["nomad", "run"]
+  if self.detach and job.name notin self.config.infraJobs:
+    cmd.add("-detach")
+  cmd.add($job.specPath)
 
-  let parseRequest = %*{"JobHCL": specContent, "Canonicalize": true}
-  let parsed = self.postJson("/v1/jobs/parse", parseRequest)
-  if not parsed.hasKey("ID"):
-    warn fmt"Parsed job missing ID; refusing to submit"
-    return
+  discard self.executeCmd(cmd, workingDir = $job.specPath.parentDir)
+  debug fmt"Started job: {job.name}"
 
-  if self.dryRun:
-    info fmt"[DRY RUN] Would submit job: {job.name}"
-    return
-
-  let payload = %*{"Job": parsed}
-  discard self.postJson("/v1/jobs", payload)
-  info fmt"Started job: {job.name}"
+# NOTE: disabled for now since job submission breaks on HCL2 functions such as file()
+# proc runJob*(self; job: NomadJob): void =
+#   let specContent = readFile($job.specPath)
+#   if specContent.len == 0:
+#     warn fmt"Empty spec file for job {job.name}"
+#     return
+#
+#   let parseRequest = %*{"JobHCL": specContent, "Canonicalize": true}
+#   let parsed = self.postJson("/v1/jobs/parse", parseRequest)
+#   if not parsed.hasKey("ID"):
+#     warn fmt"Parsed job missing ID; refusing to submit"
+#     return
+#
+#   if self.dryRun:
+#     info fmt"[DRY RUN] Would submit job: {job.name}"
+#     return
+#
+#   let payload = %*{"Job": parsed}
+#   discard self.postJson("/v1/jobs", payload)
+#   info fmt"Started job: {job.name}"
 
 proc stopJob*(self; jobName: string): void =
   var queryParams: seq[(string, string)] = @[]
