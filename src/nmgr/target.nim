@@ -3,7 +3,7 @@ import ./[config, jobs, registry]
 
 type
   TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
-  TargetNotFoundError = object of CatchableError
+  TargetNotFoundError* = object of CatchableError
 
 using
   jobs: seq[NomadJob]
@@ -63,7 +63,7 @@ func initTargetRegistry*(): Registry[TargetFilter] =
   return registry
 
 proc filter*(target, jobs, registry, config): seq[NomadJob] =
-  let filter =
+  let targetFilter =
     if registry.hasKey(target):
       registry[target]
     elif target in config.filters:
@@ -71,6 +71,6 @@ proc filter*(target, jobs, registry, config): seq[NomadJob] =
     else:
       nameFilter(target)
 
-  result = jobs.filter(config)
+  result = targetFilter(jobs, config)
   if result.len == 0:
     raise newException(TargetNotFoundError, fmt"'{target}' not found")
