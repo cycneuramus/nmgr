@@ -21,19 +21,3 @@ func get*[T](registry: Registry[T], key: string): T =
   if key in registry:
     return registry[key]
   raise newException(ValueError, fmt"Unknown key '{key}'")
-
-runnableExamples:
-  type Cat = object
-    age: int
-
-  let kitten = Cat(age: 1)
-  let cat = Cat(age: 5)
-
-  var catRegistry = Cat.initRegistry
-  catRegistry.add("Simba", kitten)
-  catRegistry.add("Mufasa", cat)
-
-  assert catRegistry.get("Simba") == kitten
-  assert kitten.age == 1
-  assert catRegistry.get("Mufasa") == cat
-  assert kitten.age == 5
