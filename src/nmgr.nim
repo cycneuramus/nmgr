@@ -4,6 +4,7 @@ import
     tables,
   ]
 import ./nmgr/[action, config, jobs, nomad, target]
+import ./nmgr/nomad/[api, cli]
 import pkg/argparse
 
 proc genCompletion() =
@@ -162,7 +163,12 @@ proc main() =
     target = args.target
     allJobs = getDefinedJobs(parsedConfig)
     nomad = NomadClient(
-      config: parsedConfig, dryRun: args.dry_run, detach: args.detach, purge: args.purge
+      config: parsedConfig,
+      dryRun: args.dry_run,
+      detach: args.detach,
+      purge: args.purge,
+      api: NomadApi(server: parsedConfig.server),
+      cli: NomadCli(),
     )
 
   let filteredJobs =
@@ -171,7 +177,8 @@ proc main() =
       configFilter(target)(allJobs, parsedConfig)
     elif action == "down":
       try:
-        let runningJobs = getRunningJobs(nomad)
+        let runningJobNames = getRunningJobs(nomad)
+        let runningJobs = runningJobNames.mapIt(NomadJob(name: it))
         target.filter(runningJobs, targetRegistry, parsedConfig)
       except CatchableError as e:
         fatal fmt"Error fetching running jobs: {e.msg}"

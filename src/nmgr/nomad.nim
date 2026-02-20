@@ -1,71 +1,16 @@
-import
-  std/[httpclient, json, logging, osproc, paths, sequtils, strformat, strutils, uri]
-import ./[config, hclparser, http, jobs, jsonparser]
+import std/[json, logging, paths, strformat, strutils]
+import ./[config, jobs]
+import ./nomad/[api, cli, hclparser, jsonparser]
 
-type
-  NomadClient* = object
-    config*: Config
-    dryRun*: bool
-    purge*: bool
-    detach*: bool
-    httpCaller*: HttpCaller
-    cliCaller*: CliCaller
-
-  HttpCaller* = proc(endpoint: string): string {.noSideEffect.}
-  CliCaller* =
-    proc(cmd: seq[string], workingDir: string = "", captureOutput: bool = false): string
+type NomadClient* = object
+  config*: Config
+  dryRun*: bool
+  purge*: bool
+  detach*: bool
+  api*: NomadApi
+  cli*: NomadCli
 
 using self: NomadClient
-
-proc apiUrl*(self; path: string, query: seq[(string, string)] = @[]): string =
-  var uri = parseUri(self.config.server)
-  uri.path =
-    if path.startsWith("/"):
-      path
-    else:
-      "/" & path
-  if query.len > 0:
-    uri.query = encodeQuery(query)
-  return $uri
-
-#TODO: method param: get/delete
-proc httpCall(self; path: string): string =
-  let endpoint = self.apiUrl(path)
-  if self.httpCaller.isNil:
-    result = httpGet(endpoint).body
-  else:
-    result = self.httpCaller(endpoint)
-
-proc cliCall*(
-    self; cmd: seq[string], workingDir: string = "", captureOutput: bool = false
-): string =
-  let cmdStr = cmd.join(" ")
-  debug fmt"Executing command: {cmdStr}"
-
-  # For commands that modify state, honor dryRun
-  if self.dryRun and not captureOutput:
-    info fmt"[DRY RUN] {cmdStr}"
-    return
-
-  if not self.cliCaller.isNil:
-    return self.cliCaller(cmd, workingDir, captureOutput)
-
-  if captureOutput:
-    let output = execProcess(
-      command = cmd[0],
-      args = cmd[1 ..^ 1],
-      workingDir = workingDir,
-      options = {poUsePath, poStdErrToStdOut},
-    )
-    return output.strip()
-
-  let process = startProcess(
-    command = cmd[0],
-    args = cmd[1 ..^ 1],
-    workingDir = workingDir,
-    options = {poUsePath, poParentStreams},
-  )
-  discard process.waitForExit()
 
 proc runJob*(self; job: NomadJob): void =
   var cmd = @["nomad", "run"]
@@ -73,25 +18,26 @@ proc runJob*(self; job: NomadJob): void =
     cmd.add("-detach")
   cmd.add($job.specPath)
 
-  discard self.cliCall(cmd, workingDir = $job.specPath.parentDir)
-  debug fmt"Started job: {job.name}"
+  self.cli.run(cmd, self.dryRun, workingDir = $job.specPath.parentDir)
+  if self.dryRun:
+    return
 
-# TODO: use httpCall
+  info fmt"Started job: {job.name}"
+
 proc stopJob*(self; jobName: string): void =
   var queryParams: seq[(string, string)] = @[]
   if self.purge:
     queryParams.add(("purge", "true"))
 
-  let endpoint = self.apiUrl("/v1/job/" & jobName, queryParams)
   if self.dryRun:
-    info fmt"[DRY RUN] DELETE {endpoint}"
+    info fmt"[DRY RUN] DELETE /v1/job/{jobName}?purge={self.purge}"
     return
 
-  discard httpDelete(endpoint)
+  discard self.api.delete("/v1/job/" & jobName, queryParams)
   info fmt"Stopped job: {jobName} (purge={self.purge})"
 
 proc isRunning*(self; jobName: string): bool =
-  let responseBody = self.httpCall("/v1/job/" & jobName)
+  let responseBody = self.api.get("/v1/job/" & jobName)
   let response = responseBody.parseResponse()
   if not response.hasKey("Status"):
     return false
@@ -100,35 +46,35 @@ proc isRunning*(self; jobName: string): bool =
 
 proc tailLogs*(self; taskName: string, jobName: string): void =
   let cmd = @["nomad", "logs", "-f", "-task", taskName, "-job", jobName]
-  discard self.cliCall(cmd)
+  self.cli.run(cmd, self.dryRun)
 
 proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): void =
   var cmd = @["nomad", "alloc", "exec", "-task", taskName, "-job", jobName]
   cmd.add(subCmd)
-  echo self.cliCall(cmd)
+  self.cli.run(cmd, self.dryRun)
 
-func extractImages(spec: string): string =
+func extractImages*(spec: string): seq[string] =
   let content = parseHcl(spec)
-  result = content.getImages().join("\n")
+  result = content.getImages()
 
-func getSpecImage*(self; spec: string): string =
+func getSpecImage*(self; spec: string): seq[string] =
   result = extractImages(spec)
 
-proc getLiveImage*(self; jobName: string): string =
-  let responseBody = self.httpCall("/v1/job/" & jobName)
+proc getLiveImage*(self; jobName: string): seq[string] =
+  let responseBody = self.api.get("/v1/job/" & jobName)
   let response = responseBody.parseResponse()
-  result = response.parseImages.join("\n")
+  result = response.parseImages
 
 proc getTasks*(self; jobName: string): seq[string] =
-  let responseBody = self.httpCall("/v1/job/" & jobName)
+  let responseBody = self.api.get("/v1/job/" & jobName)
   let response = responseBody.parseResponse()
   result = response.parseTasks
 
-proc getRunningJobs*(self): seq[NomadJob] =
+proc getRunningJobs*(self): seq[string] =
   let
-    responseBody = self.httpCall("/v1/jobs")
+    responseBody = self.api.get("/v1/jobs")
     response = responseBody.parseResponse()
     jobs = parseJobs(response)
 
-  result = jobs.mapIt(NomadJob(name: it))
-  debug fmt"Running jobs from API: {result.mapIt(it.name)}"
+  result = jobs
+  debug fmt"Running jobs from API: {result}"

@@ -1,7 +1,8 @@
 ## Represents and operates on Nomad jobs
 
 import std/[dirs, files, logging, options, paths, strformat, strutils]
-import ./[config, hclparser]
+import ./nomad/hclparser
+import ./config
 
 const specExts = [".hcl", ".nomad"]
 

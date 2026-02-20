@@ -61,8 +61,8 @@ proc listHandler(jobs, nomad, config): void =
 
 proc imageHandler(jobs, nomad, config): void =
   for job in jobs:
-    let live = nomad.getLiveImage(job.name)
-    let spec = nomad.getSpecImage(readSpec($job.specPath))
+    let live = nomad.getLiveImage(job.name).join("\n")
+    let spec = nomad.getSpecImage(readSpec($job.specPath)).join("\n")
     echo &"Live images:\n{live}\n\nSpec images:\n{spec}"
 
 proc logsHandler(jobs, nomad, config): void =

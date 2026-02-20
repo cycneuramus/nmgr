@@ -1,5 +1,5 @@
 import std/[options, strutils, unittest]
-import ../src/nmgr/hclparser
+import ../src/nmgr/nomad/hclparser
 
 suite "HCL Parser":
   test "extract job name from simple job block":
