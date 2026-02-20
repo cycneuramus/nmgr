@@ -82,6 +82,12 @@ proc main() =
       hidden = true,
       shortcircuit = true,
     )
+    flag(
+      "--list-running",
+      help = "List running jobs from Nomad",
+      hidden = true,
+      shortcircuit = true,
+    )
 
     option(
       "-c", "--config", help = fmt"Path to config file (default: ~/.config/nmgr/config)"
@@ -136,6 +142,15 @@ proc main() =
         quit(0)
       if e.flag == "list_options":
         echo listOpts(parser.help).join("\n")
+        quit(0)
+      if e.flag == "list_running":
+        let config = parse(findConfigPath())
+        let nomad = NomadClient(
+          config: config,
+          api: NomadApi(server: config.server),
+        )
+        for job in nomad.getRunningJobs():
+          echo job
         quit(0)
       else:
         raise
