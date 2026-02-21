@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/cycneuramus/nmgr/compare/v1.0.1...v1.1.0) (2026-02-21)
+
+
+### Features
+
+* Autocomplete down/logs/exec actions from actually running jobs ([489beff](https://github.com/cycneuramus/nmgr/commit/489beff840e2447b0087a9b746d0efca4dc672ea))
+* Migrate from Nomad CLI to HTTP API for up, down, and image actions ([62eb12a](https://github.com/cycneuramus/nmgr/commit/62eb12abe641ffd328441ce9ec99c9625e27df5f))
+
+
+### Bug Fixes
+
+* Catch IOError in readSpec ([8de15b9](https://github.com/cycneuramus/nmgr/commit/8de15b9c229972b990712b8559f4bcdea0a76819))
+* Correctly check ignoreDirs ([4330c0f](https://github.com/cycneuramus/nmgr/commit/4330c0fb78b89053a6fafad8ea5ed194c474b306))
+* Handle errors and improve robustness ([8e935d3](https://github.com/cycneuramus/nmgr/commit/8e935d340945d9bd606eb49435fa09860fd8a7f4))
+* Revert to Nomad CLI for job submission since API can't do local HCL2 function parsing ([bb27cb9](https://github.com/cycneuramus/nmgr/commit/bb27cb94b5a45abc53a37109833787c6b1a12a92))
+
 ## [1.0.1](https://github.com/cycneuramus/nmgr/compare/v1.0.0...v1.0.1) (2025-10-14)
 
 
