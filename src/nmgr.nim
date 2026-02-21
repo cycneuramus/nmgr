@@ -96,14 +96,6 @@ proc main() =
     arg("action", help = "Action to perform") # TODO: auto-fill actions?
     arg("target", help = "Target to operate on") # TODO: auto-fill targets?
 
-  # HACK: Make config filters available for --list-targets before config parsing
-  proc findConfigPath(): string =
-    let argv = commandLineParams()
-    for i, param in argv:
-      if param in ["-c", "--config"] and i + 1 < argv.len:
-        return argv[i + 1]
-    return defaultConfigPath
-
   # HACK: parse help text for --list-options
   func listOpts(help: string): seq[string] =
     for line in help.splitLines:
@@ -134,7 +126,7 @@ proc main() =
           echo a
         quit(0)
       if e.flag == "list_targets":
-        let config = parse(findConfigPath())
+        let config = parse(defaultConfigPath)
         for t in targetRegistry.keys:
           echo t
         for f in config.filters.keys:
@@ -144,11 +136,8 @@ proc main() =
         echo listOpts(parser.help).join("\n")
         quit(0)
       if e.flag == "list_running":
-        let config = parse(findConfigPath())
-        let nomad = NomadClient(
-          config: config,
-          api: NomadApi(server: config.server),
-        )
+        let config = parse(defaultConfigPath)
+        let nomad = NomadClient(config: config, api: NomadApi(server: config.server))
         for job in nomad.getRunningJobs():
           echo job
         quit(0)
