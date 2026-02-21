@@ -3,7 +3,7 @@ import ./[config, jobs, nomad, registry]
 
 type
   ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
-  UnknownActionError = object of CatchableError
+  UnknownActionError* = object of CatchableError
 
 using
   jobs: seq[NomadJob]
