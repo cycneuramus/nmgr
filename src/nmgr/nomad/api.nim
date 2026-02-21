@@ -1,11 +1,30 @@
-import std/[httpclient, strformat, strutils, uri]
-import ./http
+import std/[httpclient, logging, strformat, strutils, uri]
 
 type NomadApi* = object
   server*: string
   caller*: proc(httpMethod: string, endpoint: string): string
+  http*: HttpClient
 
 using self: NomadApi
+
+proc newHttp*(): HttpClient =
+  var client = newHttpClient()
+  client.headers.add("Content-Type", "application/json")
+  return client
+
+proc httpGet*(self; endpoint: string): Response =
+  debug fmt"GET {endpoint}"
+
+  let response = self.http.request(endpoint, httpMethod = HttpGet)
+  debug fmt"Response status: {response.status}"
+  return response
+
+proc httpDelete*(self; endpoint: string): Response =
+  debug fmt"DELETE {endpoint}"
+
+  let response = self.http.request(endpoint, httpMethod = HttpDelete)
+  debug fmt"Response status: {response.status}"
+  return response
 
 func buildUrl(
     server: string, path: string, query: seq[(string, string)] = @[]
@@ -27,9 +46,9 @@ proc call*(
   if self.caller.isNil:
     case httpMethod.toUpperAscii
     of "GET":
-      result = httpGet(endpoint).body
+      result = self.httpGet(endpoint).body
     of "DELETE":
-      result = httpDelete(endpoint).body
+      result = self.httpDelete(endpoint).body
     else:
       raise newException(ValueError, fmt"Unsupported HTTP method: {httpMethod}")
   else:

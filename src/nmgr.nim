@@ -137,7 +137,9 @@ proc main() =
         quit(0)
       if e.flag == "list_running":
         let config = parse(defaultConfigPath)
-        let nomad = NomadClient(config: config, api: NomadApi(server: config.server))
+        let nomad = NomadClient(
+          config: config, api: NomadApi(server: config.server, http: newHttp())
+        )
         for job in nomad.getRunningJobs():
           echo job
         quit(0)
@@ -171,7 +173,7 @@ proc main() =
       dryRun: args.dry_run,
       detach: args.detach,
       purge: args.purge,
-      api: NomadApi(server: parsedConfig.server),
+      api: NomadApi(server: parsedConfig.server, http: newHttp()),
       cli: NomadCli(),
     )
 
