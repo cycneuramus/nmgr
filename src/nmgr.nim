@@ -3,7 +3,7 @@ import
     dirs, logging, files, os, parsecfg, paths, sequtils, streams, strformat, strutils,
     tables,
   ]
-import ./nmgr/[action, config, jobs, nomad, target]
+import ./nmgr/[action, config, errors, jobs, nomad, target]
 import ./nmgr/nomad/[api, cli]
 import pkg/argparse
 
@@ -126,7 +126,12 @@ proc main() =
           echo a
         quit(0)
       if e.flag == "list_targets":
-        let config = parse(defaultConfigPath)
+        let config =
+          try:
+            parse(defaultConfigPath)
+          except ConfigError as e:
+            fatal e.msg
+            quit(1)
         for t in targetRegistry.keys:
           echo t
         for f in config.filters.keys:
@@ -136,7 +141,12 @@ proc main() =
         echo listOpts(parser.help).join("\n")
         quit(0)
       if e.flag == "list_running":
-        let config = parse(defaultConfigPath)
+        let config =
+          try:
+            parse(defaultConfigPath)
+          except ConfigError as e:
+            fatal e.msg
+            quit(1)
         let nomad = NomadClient(
           config: config, api: NomadApi(server: config.server, http: newHttp())
         )
@@ -162,9 +172,12 @@ proc main() =
 
   let
     configPath = args.config_opt.get(otherwise = defaultConfigPath)
-    parsedConfig = configPath.parse()
-
-  let
+    parsedConfig =
+      try:
+        configPath.parse()
+      except ConfigError as e:
+        fatal e.msg
+        quit(1)
     action = args.action
     target = args.target
     allJobs = getDefinedJobs(parsedConfig)

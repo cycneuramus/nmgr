@@ -1,4 +1,5 @@
-import std/[logging, parsecfg, paths, sequtils, strformat, strutils, tables, with]
+import std/[parsecfg, paths, sequtils, strformat, strutils, tables, with]
+import ./errors
 
 type
   Filter* = object
@@ -21,8 +22,7 @@ proc parse*(configPath: string): Config =
     try:
       loadConfig(configPath)
     except IOError as e:
-      fatal fmt"Error parsing config: {e.msg}"
-      quit(1)
+      raise newException(ConfigError, fmt"Error parsing config: {e.msg}")
 
   with config:
     baseDir = parser.getSectionValue("general", "base_dir", "").Path.expandTilde
