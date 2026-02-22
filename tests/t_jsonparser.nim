@@ -1,5 +1,5 @@
 import std/[json, unittest]
-import ../src/nmgr/nomad/jsonparser
+import ../src/nmgr/[errors, nomad/jsonparser]
 
 suite "JSON Parser":
   test "parseResponse returns valid JsonNode from JSON string":
@@ -13,13 +13,10 @@ suite "JSON Parser":
       result["key"].getStr == "value"
       result["number"].getInt == 42
 
-  test "parseResponse returns empty object for invalid JSON":
+  test "parseResponse raises NomadError for invalid JSON":
     let jsonStr = """{invalid json"""
-    let result = parseResponse(jsonStr)
-
-    check:
-      result.kind == JObject
-      result.len == 0
+    expect NomadError:
+      discard parseResponse(jsonStr)
 
   test "parseImages extracts images from task config":
     let

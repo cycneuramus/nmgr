@@ -1,11 +1,11 @@
-import std/[json, logging, strformat, strutils]
+import std/[json, strformat, strutils]
+import ../errors
 
 proc parseResponse*(body: string): JsonNode =
   try:
     result = parseJson(body)
-  except Exception as e:
-    error fmt"Failed to get JSON response: {e.msg}"
-    result = %*{}
+  except JsonParsingError as e:
+    raise newException(NomadError, fmt"Failed to parse JSON response: {e.msg}")
 
 func parseImages*(json: JsonNode): seq[string] =
   if not json.hasKey("TaskGroups"):
