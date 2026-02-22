@@ -123,10 +123,7 @@ proc editHandler(jobs, nomad, config): void =
     error "'$EDITOR environment variable not set"
     return
 
-  try:
-    discard execShellCmd(fmt "{editor} '{spec}'")
-  except OSError:
-    error fmt"Failed to execute {editor}"
+  discard execShellCmd(fmt "{editor} '{spec}'")
 
 func initActionRegistry*(): Registry[ActionHandler] =
   var registry = ActionHandler.initRegistry
