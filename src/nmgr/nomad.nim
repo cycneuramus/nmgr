@@ -18,7 +18,7 @@ proc runJob*(self; job: NomadJob): void =
     cmd.add("-detach")
   cmd.add($job.specPath)
 
-  self.cli.run(cmd, self.dryRun, workingDir = $job.specPath.parentDir)
+  discard self.cli.run(cmd, self.dryRun, workingDir = $job.specPath.parentDir)
   if self.dryRun:
     return
 
@@ -46,12 +46,12 @@ proc isRunning*(self; jobName: string): bool =
 
 proc tailLogs*(self; taskName: string, jobName: string): void =
   let cmd = @["nomad", "logs", "-f", "-task", taskName, "-job", jobName]
-  self.cli.run(cmd, self.dryRun)
+  discard self.cli.run(cmd, self.dryRun)
 
-proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): void =
+proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): int =
   var cmd = @["nomad", "alloc", "exec", "-task", taskName, "-job", jobName]
   cmd.add(subCmd)
-  self.cli.run(cmd, self.dryRun)
+  result = self.cli.run(cmd, self.dryRun)
 
 func extractImages*(spec: string): seq[string] =
   let content = parseHcl(spec)

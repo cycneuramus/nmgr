@@ -2,7 +2,7 @@ import std/[paths, tables, unittest]
 import ../src/nmgr/[action, config, jobs, nomad, registry]
 
 const actions =
-  @["up", "down", "find", "list", "image", "logs", "exec", "reconcile", "edit"]
+  @["up", "down", "find", "list", "image", "logs", "exec", "shell", "reconcile", "edit"]
 
 func makeConfig(): Config =
   Config(

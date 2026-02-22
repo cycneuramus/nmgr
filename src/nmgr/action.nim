@@ -66,30 +66,38 @@ proc imageHandler(jobs, nomad, config): void =
     echo &"Live images:\n{live}\n\nSpec images:\n{spec}"
 
 proc logsHandler(jobs, nomad, config): void =
-  if jobs.len > 1:
-    error "Logs cannot be shown for more than one job at a time"
-    return
-
-  let job = jobs[0]
-  let task = nomad.selectTask(job)
+  let
+    job = jobs[0]
+    task = nomad.selectTask(job)
   if task.len < 1:
     return
 
   nomad.tailLogs(taskName = task, jobName = job.name)
 
 proc execHandler(jobs, nomad, config): void =
-  if jobs.len > 1:
-    error "Exec cannot be run for more than one job at a time"
-    return
-
-  let job = jobs[0]
-  let task = nomad.selectTask(job)
+  let
+    job = jobs[0]
+    task = nomad.selectTask(job)
   if task.len < 1:
     return
 
   echo fmt"Command to execute in {task}: "
   let subCmd = readLine(stdin)
-  nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.split())
+  discard nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.split())
+
+proc shellHandler(jobs, nomad, config): void =
+  let
+    job = jobs[0]
+    task = nomad.selectTask(job)
+  if task.len < 1:
+    return
+
+  for shell in @["bash", "sh"]:
+    debug fmt"Trying shell '{shell}' in {job.name}"
+    if nomad.exec(taskName = task, jobName = job.name, subCmd = @[shell]) == 0:
+      return
+
+  error fmt"No shell found in {job.name} container"
 
 proc reconcileHandler(jobs, nomad, config): void =
   for job in jobs:
@@ -135,6 +143,7 @@ func initActionRegistry*(): Registry[ActionHandler] =
     add("image", imageHandler)
     add("logs", logsHandler)
     add("exec", execHandler)
+    add("shell", shellHandler)
     add("reconcile", reconcileHandler)
     add("edit", editHandler)
   return registry

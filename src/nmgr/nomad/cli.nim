@@ -6,17 +6,17 @@ type NomadCli* = object
 
 using self: NomadCli
 
-proc run*(self; cmd: seq[string], dryRun: bool, workingDir: string = ""): void =
+proc run*(self; cmd: seq[string], dryRun: bool, workingDir: string = ""): int =
   let cmdStr = cmd.join(" ")
   debug fmt"Executing command: {cmdStr}"
 
   if dryRun:
     info fmt"[DRY RUN] {cmdStr}"
-    return
+    return 0
 
   if not self.caller.isNil:
     discard self.caller(cmd, workingDir)
-    return
+    return 0
 
   let process = startProcess(
     command = cmd[0],
@@ -24,4 +24,5 @@ proc run*(self; cmd: seq[string], dryRun: bool, workingDir: string = ""): void =
     workingDir = workingDir,
     options = {poUsePath, poParentStreams},
   )
-  discard process.waitForExit()
+
+  result = process.waitForExit()

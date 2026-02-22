@@ -28,7 +28,7 @@ _nmgr_completions() {
 			;;
 		1)
 			targets="$(nmgr --list-targets)"
-			if [[ "$action" == @(down|logs|exec) ]]; then
+			if [[ "$action" == @(down|logs|exec|shell) ]]; then
 				jobs="$(nmgr --list-running)"
 			else
 				jobs="$(nmgr list all)"
