@@ -1,5 +1,5 @@
 import std/[json, paths, strformat, strutils]
-import ./[config, jobs, logging]
+import ./[config, errors, jobs, logging]
 import ./nomad/[api, cli, hclparser, jsonparser]
 
 type NomadClient* = object
@@ -11,6 +11,43 @@ type NomadClient* = object
   cli*: NomadCli
 
 using self: NomadClient
+
+func extractImages*(spec: string): seq[string] =
+  let content = parseHcl(spec)
+  result = content.getImages()
+
+func getSpecImage*(self; spec: string): seq[string] =
+  result = extractImages(spec)
+
+proc isRunning*(self; jobName: string): bool =
+  let response = self.api.get("/v1/job/" & jobName).parseResponse()
+  if not response.hasKey("Status"):
+    return false
+  let status = response["Status"].getStr.toLowerAscii
+  result = status == "running"
+
+proc getLiveImage*(self; jobName: string): seq[string] =
+  let response = self.api.get("/v1/job/" & jobName).parseResponse()
+  result = response.parseImages()
+  if result.len == 0:
+    raise newException(NomadError, fmt"No images found for {jobName}")
+
+proc getTasks*(self; jobName: string): seq[string] =
+  let response = self.api.get("/v1/job/" & jobName).parseResponse()
+  result = response.parseTasks()
+  if result.len == 0:
+    raise newException(NomadError, fmt"No tasks found for {jobName}")
+
+proc getAllocId*(self; jobName: string): string =
+  let response = self.api.get("/v1/job/" & jobname & "/allocations").parseResponse()
+  result = response.parseAllocId()
+  if result.len == 0:
+    raise newException(NomadError, fmt"No allocation found for {jobName}")
+
+proc getRunningJobs*(self): seq[string] =
+  let response = self.api.get("/v1/jobs").parseResponse()
+  result = response.parseJobs()
+  debug fmt"Running jobs from API: {result}"
 
 proc runJob*(self; job: NomadJob): void =
   var cmd = @["nomad", "run"]
@@ -36,45 +73,14 @@ proc stopJob*(self; jobName: string): void =
   discard self.api.delete("/v1/job/" & jobName, queryParams)
   info fmt"Stopped job: {jobName} (purge={self.purge})"
 
-proc isRunning*(self; jobName: string): bool =
-  let responseBody = self.api.get("/v1/job/" & jobName)
-  let response = responseBody.parseResponse()
-  if not response.hasKey("Status"):
-    return false
-  let status = response["Status"].getStr.toLowerAscii
-  result = status == "running"
-
 proc tailLogs*(self; taskName: string, jobName: string): void =
-  let cmd = @["nomad", "logs", "-f", "-task", taskName, "-job", jobName]
+  let
+    allocId = self.getAllocId(jobName)
+    cmd = @["nomad", "logs", "-f", "-task", taskName, allocId]
   discard self.cli.run(cmd, self.dryRun)
 
 proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): int =
-  var cmd = @["nomad", "alloc", "exec", "-task", taskName, "-job", jobName]
+  let allocId = self.getAllocId(jobName)
+  var cmd = @["nomad", "alloc", "exec", "-task", taskName, allocId]
   cmd.add(subCmd)
   result = self.cli.run(cmd, self.dryRun)
-
-func extractImages*(spec: string): seq[string] =
-  let content = parseHcl(spec)
-  result = content.getImages()
-
-func getSpecImage*(self; spec: string): seq[string] =
-  result = extractImages(spec)
-
-proc getLiveImage*(self; jobName: string): seq[string] =
-  let responseBody = self.api.get("/v1/job/" & jobName)
-  let response = responseBody.parseResponse()
-  result = response.parseImages
-
-proc getTasks*(self; jobName: string): seq[string] =
-  let responseBody = self.api.get("/v1/job/" & jobName)
-  let response = responseBody.parseResponse()
-  result = response.parseTasks
-
-proc getRunningJobs*(self): seq[string] =
-  let
-    responseBody = self.api.get("/v1/jobs")
-    response = responseBody.parseResponse()
-    jobs = parseJobs(response)
-
-  result = jobs
-  debug fmt"Running jobs from API: {result}"

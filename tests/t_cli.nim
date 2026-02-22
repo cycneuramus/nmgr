@@ -11,7 +11,7 @@ suite "Nomad CLI":
       executed = true
       return ""
 
-    cli.run(@["nomad", "run", "job.hcl"], dryRun = true)
+    discard cli.run(@["nomad", "run", "job.hcl"], dryRun = true)
 
     check executed == false
 
@@ -26,7 +26,7 @@ suite "Nomad CLI":
       capturedCmd = cmd
       return ""
 
-    cli.run(@["nomad", "run", "job.hcl"], dryRun = false)
+    discard cli.run(@["nomad", "run", "job.hcl"], dryRun = false)
 
     check:
       executed == true
@@ -41,7 +41,8 @@ suite "Nomad CLI":
       capturedWorkingDir = workingDir
       return ""
 
-    cli.run(@["nomad", "run", "job.hcl"], dryRun = false, workingDir = "/tmp/jobs")
+    discard
+      cli.run(@["nomad", "run", "job.hcl"], dryRun = false, workingDir = "/tmp/jobs")
 
     check capturedWorkingDir == "/tmp/jobs"
 
@@ -54,6 +55,6 @@ suite "Nomad CLI":
       capturedWorkingDir = workingDir
       return ""
 
-    cli.run(@["nomad", "run", "job.hcl"], dryRun = false)
+    discard cli.run(@["nomad", "run", "job.hcl"], dryRun = false)
 
     check capturedWorkingDir == ""

@@ -19,7 +19,7 @@ suite "Action Handler":
   test "initActionRegistry creates registry with all actions":
     let registry = initActionRegistry()
 
-    check registry.len == 9
+    check registry.len == actions.len
     for a in actions:
       check registry.hasKey(a)
 

@@ -45,6 +45,16 @@ func parseTasks*(json: JsonNode): seq[string] =
       if task.hasKey("Name"):
         result.add task["Name"].getStr("")
 
+func parseAllocId*(json: JsonNode): string =
+  if json.kind != JArray:
+    return
+  for alloc in json:
+    if alloc.kind != JObject:
+      continue
+    let status = alloc.getOrDefault("ClientStatus").getStr("")
+    if status == "running":
+      return alloc.getOrDefault("ID").getStr("")
+
 func parseJobs*(json: JsonNode): seq[string] =
   if json.kind != JArray:
     return
