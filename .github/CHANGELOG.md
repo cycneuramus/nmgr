@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/cycneuramus/nmgr/compare/v1.1.0...v1.2.0) (2026-02-22)
+
+
+### Features
+
+* Add 'shell' action ([e266589](https://github.com/cycneuramus/nmgr/commit/e2665896f5bea43c9accabc910b605b1171b4301))
+* Support multiple target jobs ([4ade629](https://github.com/cycneuramus/nmgr/commit/4ade629fbee1fb382e797884d0f26997ff81ef8d))
+
+
+### Bug Fixes
+
+* Use allocID instead of job name in exec-like actions to handle jobs with multiple allocations ([de2d363](https://github.com/cycneuramus/nmgr/commit/de2d3630d8a261e8456876ef793be32bd89651a1))
+
 ## [1.1.0](https://github.com/cycneuramus/nmgr/compare/v1.0.1...v1.1.0) (2026-02-21)
 
 
