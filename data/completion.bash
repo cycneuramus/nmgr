@@ -26,7 +26,7 @@ _nmgr_completions() {
 			actions="$(nmgr --list-actions)"
 			mapfile -t COMPREPLY < <(compgen -W "$actions" -- "$cur")
 			;;
-		1)
+		*)
 			targets="$(nmgr --list-targets)"
 			if [[ "$action" == @(down|logs|exec|shell) ]]; then
 				jobs="$(nmgr --list-running)"

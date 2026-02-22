@@ -61,9 +61,16 @@ proc listHandler(jobs, nomad, config): void =
 
 proc imageHandler(jobs, nomad, config): void =
   for job in jobs:
-    let live = nomad.getLiveImage(job.name).join("\n")
-    let spec = nomad.getSpecImage(readSpec($job.specPath)).join("\n")
-    echo &"Live images:\n{live}\n\nSpec images:\n{spec}"
+    let
+      live = nomad.getLiveImage(job.name).join("\n")
+      spec = nomad.getSpecImage(readSpec($job.specPath)).join("\n")
+
+    var separator = ""
+    if jobs.len > 1:
+      echo &"Job: {job.name}\n"
+      separator = "\n"
+
+    echo &"Live images:\n{live}\n\nSpec images:\n{spec}{separator}"
 
 proc logsHandler(jobs, nomad, config): void =
   let
@@ -119,12 +126,9 @@ proc reconcileHandler(jobs, nomad, config): void =
     nomad.runJob(job)
 
 proc editHandler(jobs, nomad, config): void =
-  if jobs.len > 1:
-    error "Job specifications cannot be edited more than one at a time"
-    return
-
-  let job = jobs[0]
-  let spec = job.specPath
+  let
+    job = jobs[0]
+    spec = job.specPath
 
   let editor = getEnv("EDITOR")
   if editor.len == 0:

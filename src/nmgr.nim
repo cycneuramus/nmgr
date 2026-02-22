@@ -38,12 +38,13 @@ proc genCompletion() =
   echo fmt"Bash completion script installed at {scriptPath}"
 
 proc main() =
-  const defaultConfig = staticRead("../data/config")
-  const version = staticRead("../nmgr.nimble").newStringStream.loadConfig
-    .getSectionValue("", "version")
-
-  const targetRegistry = initTargetRegistry()
-  const actionRegistry = initActionRegistry()
+  const
+    version = staticRead("../nmgr.nimble").newStringStream.loadConfig.getSectionValue(
+        "", "version"
+      )
+    defaultConfig = staticRead("../data/config")
+    targetRegistry = initTargetRegistry()
+    actionRegistry = initActionRegistry()
 
   let defaultConfigPath =
     getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
@@ -91,7 +92,7 @@ proc main() =
     )
 
     arg("action", help = "Action to perform") # TODO: auto-fill actions?
-    arg("target", help = "Target to operate on") # TODO: auto-fill targets?
+    arg("targets", help = "Targets to operate on", nargs = -1) # TODO: auto-fill targets?
 
   # HACK: parse help text for --list-options
   func listOpts(help: string): seq[string] =
@@ -175,14 +176,17 @@ proc main() =
       except ConfigError as e:
         fatal e.msg
         quit(1)
+
     action = args.action
-    target = args.target
+    targets = args.targets
+
     definedJobs =
       try:
         getDefinedJobs(parsedConfig)
       except JobError as e:
         fatal e.msg
         quit(1)
+
     nomad = NomadClient(
       config: parsedConfig,
       dryRun: args.dry_run,
@@ -192,27 +196,46 @@ proc main() =
       cli: NomadCli(),
     )
 
-  let filteredJobs =
-    # NOTE: 'find' action is treated as an on-the-fly config filter for now
-    if action == "find":
-      configFilter(target)(definedJobs, parsedConfig)
-    elif action == "down":
-      try:
-        let runningJobNames = getRunningJobs(nomad)
-        let runningJobs = runningJobNames.mapIt(NomadJob(name: it))
-        target.filter(runningJobs, targetRegistry, parsedConfig)
-      except CatchableError as e:
-        fatal fmt"Error fetching running jobs: {e.msg}"
-        quit(1)
-    else:
-      try:
-        target.filter(definedJobs, targetRegistry, parsedConfig)
-      except CatchableError as e:
-        fatal fmt"Error filtering on target: {e.msg}"
-        quit(1)
+  var
+    targetedJobs: seq[NomadJob]
+    seenJobs: seq[string]
+
+  for target in targets:
+    let filteredJobs =
+      # NOTE: 'find' action is treated as an on-the-fly config filter for now
+      if action == "find":
+        configFilter(target)(definedJobs, parsedConfig)
+      elif action == "down":
+        try:
+          let
+            runningJobNames = getRunningJobs(nomad)
+            runningJobs = runningJobNames.mapIt(NomadJob(name: it))
+          target.filter(runningJobs, targetRegistry, parsedConfig)
+        except CatchableError as e:
+          fatal fmt"Error fetching running jobs: {e.msg}"
+          quit(1)
+      else:
+        try:
+          target.filter(definedJobs, targetRegistry, parsedConfig)
+        except CatchableError as e:
+          fatal fmt"Error filtering on target: {e.msg}"
+          quit(1)
+
+    # Deduplicate target args
+    for job in filteredJobs:
+      if job.name notin seenJobs:
+        seenJobs.add(job.name)
+        targetedJobs.add(job)
+
+  debug fmt"Targeting jobs: {targetedJobs.mapIt(it.name)}"
+
+  const singleJobActions = ["edit", "exec", "logs", "shell"]
+  if action in singleJobActions and targetedJobs.len > 1:
+    fatal fmt"The {action} action only supports a single job"
+    quit(1)
 
   try:
-    action.handle(actionRegistry, filteredJobs, nomad, parsedConfig)
+    action.handle(actionRegistry, targetedJobs, nomad, parsedConfig)
   except CatchableError as e:
     fatal fmt"Error handling action: {e.msg}"
     quit(1)
