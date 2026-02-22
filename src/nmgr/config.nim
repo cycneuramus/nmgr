@@ -1,5 +1,5 @@
 import std/[parsecfg, paths, sequtils, strformat, strutils, tables, with]
-import ./errors
+import ./[errors, logging]
 
 type
   Filter* = object
@@ -18,6 +18,8 @@ type
 
 proc parse*(configPath: string): Config =
   var config: Config
+  debug fmt"Loading config from: {configPath}"
+
   let parser =
     try:
       loadConfig(configPath)
@@ -45,4 +47,5 @@ proc parse*(configPath: string): Config =
         excludeInfra: filter.getOrDefault("exclude_infra", "false").parseBool,
       )
 
+  debug fmt"Config loaded: baseDir={config.baseDir}, server={config.server}, filters={config.filters.keys().toSeq()}"
   return config

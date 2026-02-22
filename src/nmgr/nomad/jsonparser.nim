@@ -1,7 +1,8 @@
 import std/[json, strformat, strutils]
-import ../errors
+import ../[errors, logging]
 
 proc parseResponse*(body: string): JsonNode =
+  debug fmt"Parsing JSON response"
   try:
     result = parseJson(body)
   except JsonParsingError as e:

@@ -1,5 +1,5 @@
 import std/[algorithm, sequtils, strformat, tables, with]
-import ./[config, jobs, registry]
+import ./[config, jobs, logging, registry]
 
 type
   TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
@@ -63,14 +63,20 @@ func initTargetRegistry*(): Registry[TargetFilter] =
   return registry
 
 proc filter*(target, jobs, registry, config): seq[NomadJob] =
+  debug fmt"Filtering jobs on target: {target}"
   let targetFilter =
     if registry.hasKey(target):
+      debug fmt"Using registry filter: {target}"
       registry[target]
     elif target in config.filters:
+      debug fmt"Using config filter: {target}"
       configFilter(target)
     else:
+      debug fmt"Using name filter: {target}"
       nameFilter(target)
 
   result = targetFilter(jobs, config)
+  debug fmt"Target filter result: {result.len} jobs matched"
+
   if result.len == 0:
     raise newException(TargetNotFoundError, fmt"'{target}' not found")

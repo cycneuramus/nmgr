@@ -1,5 +1,5 @@
-import std/[json, logging, paths, strformat, strutils]
-import ./[config, jobs]
+import std/[json, paths, strformat, strutils]
+import ./[config, jobs, logging]
 import ./nomad/[api, cli, hclparser, jsonparser]
 
 type NomadClient* = object

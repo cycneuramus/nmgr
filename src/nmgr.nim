@@ -1,9 +1,6 @@
 import
-  std/[
-    dirs, logging, files, os, parsecfg, paths, sequtils, streams, strformat, strutils,
-    tables,
-  ]
-import ./nmgr/[action, config, errors, jobs, nomad, target]
+  std/[dirs, files, os, parsecfg, paths, sequtils, streams, strformat, strutils, tables]
+import ./nmgr/[logging, action, config, errors, jobs, nomad, target]
 import ./nmgr/nomad/[api, cli]
 import pkg/argparse
 

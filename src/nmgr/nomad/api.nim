@@ -1,4 +1,5 @@
-import std/[httpclient, logging, strformat, strutils, uri]
+import std/[httpclient, strformat, strutils, uri]
+import ../logging
 
 type NomadApi* = object
   server*: string

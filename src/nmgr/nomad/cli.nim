@@ -1,4 +1,5 @@
-import std/[logging, osproc, strformat, strutils]
+import std/[osproc, strformat, strutils]
+import ../logging
 
 type NomadCli* = object
   caller*: proc(cmd: seq[string], workingDir: string, captureOutput: bool): string
