@@ -7,9 +7,7 @@ suite "Nomad CLI":
       cli = NomadCli()
       executed = false
 
-    cli.caller = proc(
-        cmd: seq[string], workingDir: string, captureOutput: bool
-    ): string =
+    cli.caller = proc(cmd: seq[string], workingDir: string): string =
       executed = true
       return ""
 
@@ -23,9 +21,7 @@ suite "Nomad CLI":
       executed = false
       capturedCmd: seq[string] = @[]
 
-    cli.caller = proc(
-        cmd: seq[string], workingDir: string, captureOutput: bool
-    ): string =
+    cli.caller = proc(cmd: seq[string], workingDir: string): string =
       executed = true
       capturedCmd = cmd
       return ""
@@ -41,9 +37,7 @@ suite "Nomad CLI":
       cli = NomadCli()
       capturedWorkingDir = ""
 
-    cli.caller = proc(
-        cmd: seq[string], workingDir: string, captureOutput: bool
-    ): string =
+    cli.caller = proc(cmd: seq[string], workingDir: string): string =
       capturedWorkingDir = workingDir
       return ""
 
@@ -56,9 +50,7 @@ suite "Nomad CLI":
       cli = NomadCli()
       capturedWorkingDir = ""
 
-    cli.caller = proc(
-        cmd: seq[string], workingDir: string, captureOutput: bool
-    ): string =
+    cli.caller = proc(cmd: seq[string], workingDir: string): string =
       capturedWorkingDir = workingDir
       return ""
 

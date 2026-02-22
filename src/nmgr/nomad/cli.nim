@@ -2,7 +2,7 @@ import std/[osproc, strformat, strutils]
 import ../logging
 
 type NomadCli* = object
-  caller*: proc(cmd: seq[string], workingDir: string, captureOutput: bool): string
+  caller*: proc(cmd: seq[string], workingDir: string): string
 
 using self: NomadCli
 
@@ -15,7 +15,7 @@ proc run*(self; cmd: seq[string], dryRun: bool, workingDir: string = ""): void =
     return
 
   if not self.caller.isNil:
-    discard self.caller(cmd, workingDir, false)
+    discard self.caller(cmd, workingDir)
     return
 
   let process = startProcess(
