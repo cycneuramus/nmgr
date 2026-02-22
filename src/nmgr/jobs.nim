@@ -1,8 +1,8 @@
 ## Represents and operates on Nomad jobs
 
 import std/[dirs, files, logging, options, paths, strformat, strutils]
+import ./[config, errors]
 import ./nomad/hclparser
-import ./config
 
 const specExts = [".hcl", ".nomad"]
 
@@ -14,10 +14,8 @@ type NomadJob* = object
 proc readSpec*(specPath: string): string =
   try:
     result = readFile(specPath)
-  except OSError as e:
-    warn fmt"Unable to read spec file {specPath}: {e.msg}"
-  except IOError as e:
-    warn fmt"Unable to read spec file {specPath}: {e.msg}"
+  except CatchableError as e:
+    raise newException(JobError, fmt"Unable to read spec file {specPath}: {e.msg}")
 
 proc getJobName(specPath: Path): string =
   let spec = readSpec($specPath)
@@ -54,8 +52,7 @@ proc matchesFilter*(
 proc getDefinedJobs*(config: Config): seq[NomadJob] =
   ## Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
-    error fmt"Base directory not found: {config.baseDir.string}"
-    return
+    raise newException(JobError, fmt"Base directory not found: {config.baseDir.string}")
 
   for (kind, path) in walkDir(config.baseDir):
     if kind != pcDir or path.extractFilename in config.ignoreDirs:

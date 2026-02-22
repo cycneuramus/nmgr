@@ -180,7 +180,12 @@ proc main() =
         quit(1)
     action = args.action
     target = args.target
-    allJobs = getDefinedJobs(parsedConfig)
+    definedJobs =
+      try:
+        getDefinedJobs(parsedConfig)
+      except JobError as e:
+        fatal e.msg
+        quit(1)
     nomad = NomadClient(
       config: parsedConfig,
       dryRun: args.dry_run,
@@ -193,7 +198,7 @@ proc main() =
   let filteredJobs =
     # NOTE: 'find' action is treated as an on-the-fly config filter for now
     if action == "find":
-      configFilter(target)(allJobs, parsedConfig)
+      configFilter(target)(definedJobs, parsedConfig)
     elif action == "down":
       try:
         let runningJobNames = getRunningJobs(nomad)
@@ -204,7 +209,7 @@ proc main() =
         quit(1)
     else:
       try:
-        target.filter(allJobs, targetRegistry, parsedConfig)
+        target.filter(definedJobs, targetRegistry, parsedConfig)
       except CatchableError as e:
         fatal fmt"Error filtering on target: {e.msg}"
         quit(1)

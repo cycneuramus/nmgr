@@ -1,5 +1,5 @@
 import std/[os, paths, strutils, tables, unittest]
-import ../src/nmgr/[config, jobs]
+import ../src/nmgr/[config, errors, jobs]
 
 func makeFilter(pattern: string, extendedSearch = false, excludeInfra = false): Filter =
   Filter(
@@ -39,10 +39,9 @@ suite "Job Operations":
 
     check result == content
 
-  test "readSpec handles missing file gracefully":
-    let result = readSpec("/nonexistent/path/job.hcl")
-
-    check result == ""
+  test "readSpec raises JobError for missing file":
+    expect JobError:
+      discard readSpec("/nonexistent/path/job.hcl")
 
   test "matchesFilter finds pattern in file":
     let tempDir = getTempDir() / "nmgr_filter_test"
@@ -164,7 +163,7 @@ suite "Job Operations":
 
     check result.len == 0
 
-  test "getDefinedJobs returns empty for non-existent base dir":
+  test "getDefinedJobs raises JobError for non-existent base dir":
     let baseDir = getTempDir() / "nmgr_nonexistent_" & $getCurrentProcessId()
     if dirExists(baseDir):
       removeDir(baseDir)
@@ -177,9 +176,8 @@ suite "Job Operations":
       server: "http://localhost:4646",
     )
 
-    let result = getDefinedJobs(configWithBadPath)
-
-    check result.len == 0
+    expect JobError:
+      discard getDefinedJobs(configWithBadPath)
 
   test "getDefinedJobs discovers jobs from directory structure":
     let baseDir = getTempDir() / "nmgr_jobs_test"
