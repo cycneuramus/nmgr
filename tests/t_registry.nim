@@ -21,11 +21,11 @@ suite "Registry":
       registry.len == 1
       "Simba" in registry
 
-  test "add raises ValueError on duplicate key":
+  test "add raises KeyError on duplicate key":
     var registry = Cat.initRegistry
     registry.add("Simba", makeCat(5))
 
-    expect ValueError:
+    expect KeyError:
       registry.add("Simba", makeCat(3))
 
   test "get retrieves entry by key":
@@ -39,10 +39,10 @@ suite "Registry":
       result == cat
       result.age == 5
 
-  test "get raises ValueError for unknown key":
+  test "get raises KeyError for unknown key":
     let registry = Cat.initRegistry
 
-    expect ValueError:
+    expect KeyError:
       discard registry.get("Unknown")
 
   test "get returns correct entry for multiple items":
