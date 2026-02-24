@@ -97,7 +97,7 @@ template parseArgs*(): untyped =
         config: config, api: NomadApi(server: config.server, http: newHttp())
       )
       for job in nomad.getRunningJobs():
-        echo job
+        echo job.name
       quit(0)
     else:
       raise

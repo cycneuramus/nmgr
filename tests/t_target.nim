@@ -1,5 +1,5 @@
 import std/[paths, tables, unittest]
-import ../src/nmgr/[config, jobs, target]
+import ../src/nmgr/[config, errors, jobs, target]
 
 func makeConfig(infraJobs: seq[string] = @[]): Config =
   Config(
@@ -61,30 +61,30 @@ suite "Target Filters":
       result.len == 1
       result[0].name == "app"
 
-  test "filter raises TargetNotFoundError for no matches":
+  test "filter raises TargetError for no matches":
     let config = makeConfig()
     let jobs = @[makeJob("app")]
 
-    expect TargetNotFoundError:
+    expect TargetError:
       discard "nonexistent".filter(jobs, registry, config)
 
   test "servicesFilter returns empty for all-infra jobs":
     let config = makeConfig(@["garage", "valkey"])
     let jobs = @[makeJob("garage"), makeJob("valkey")]
 
-    expect TargetNotFoundError:
+    expect TargetError:
       discard "services".filter(jobs, registry, config)
 
   test "infraFilter returns empty for no infra jobs":
     let config = makeConfig(@["garage"])
     let jobs = @[makeJob("app")]
 
-    expect TargetNotFoundError:
+    expect TargetError:
       discard "infra".filter(jobs, registry, config)
 
   test "allFilter handles empty job list":
     let config = makeConfig()
     let jobs: seq[NomadJob] = @[]
 
-    expect TargetNotFoundError:
+    expect TargetError:
       discard "all".filter(jobs, registry, config)

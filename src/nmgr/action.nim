@@ -1,9 +1,15 @@
-import std/[os, paths, strformat, strutils, tables, with]
-import ./[config, jobs, logging, nomad, registry]
+import std/[os, paths, strformat, strutils, with]
+import ./[config, errors, jobs, logging, nomad, registry]
 
 type
-  ActionHandler = proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
-  UnknownActionError* = object of CatchableError
+  NomadInterface* = enum
+    niCli
+    niApi
+
+  Action* = object
+    handler*: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
+    nomadInterface*: NomadInterface = niCli
+    isSingleJob*: bool = false
 
 using
   jobs: seq[NomadJob]
@@ -36,7 +42,7 @@ proc selectTask(nomad; job: NomadJob): string =
 
 proc upHandler(jobs, nomad, config): void =
   for job in jobs:
-    if nomad.isRunning(job.name):
+    if job.isRunning:
       debug fmt"Job {job.name} is already running"
 
     debug fmt"Bringing job UP: {job.name}"
@@ -44,7 +50,7 @@ proc upHandler(jobs, nomad, config): void =
 
 proc downHandler(jobs, nomad, config): void =
   for job in jobs:
-    if not nomad.isRunning(job.name):
+    if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
       continue
 
@@ -108,7 +114,7 @@ proc shellHandler(jobs, nomad, config): void =
 
 proc reconcileHandler(jobs, nomad, config): void =
   for job in jobs:
-    if not nomad.isRunning(job.name):
+    if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
       continue
 
@@ -137,32 +143,28 @@ proc editHandler(jobs, nomad, config): void =
 
   discard execShellCmd(fmt "{editor} '{spec}'")
 
-func initActionRegistry*(): Registry[ActionHandler] =
-  var registry = ActionHandler.initRegistry
+func initActionRegistry*(): Registry[Action] =
+  var registry = Action.initRegistry
   with registry:
-    add("up", upHandler)
-    add("down", downHandler)
-    add("find", findHandler)
-    add("list", listHandler)
-    add("image", imageHandler)
-    add("logs", logsHandler)
-    add("exec", execHandler)
-    add("shell", shellHandler)
-    add("reconcile", reconcileHandler)
-    add("edit", editHandler)
+    add("up", Action(handler: upHandler))
+    add("down", Action(handler: downHandler, nomadInterface: niApi))
+    add("find", Action(handler: findHandler))
+    add("list", Action(handler: listHandler))
+    add("image", Action(handler: imageHandler))
+    add("logs", Action(handler: logsHandler, nomadInterface: niApi, isSingleJob: true))
+    add("exec", Action(handler: execHandler, nomadInterface: niApi, isSingleJob: true))
+    add(
+      "shell", Action(handler: shellHandler, nomadInterface: niApi, isSingleJob: true)
+    )
+    add("reconcile", Action(handler: reconcileHandler))
+    add("edit", Action(handler: editHandler, isSingleJob: true))
   return registry
 
 proc handle*(
-    action: string,
-    registry: Registry[ActionHandler],
-    jobs: seq[NomadJob],
-    nomad: NomadClient,
-    config: Config,
+    action: Action, jobs: seq[NomadJob], nomad: NomadClient, config: Config
 ): void =
-  let handle =
-    if registry.hasKey(action):
-      registry[action]
-    else:
-      raise newException(UnknownActionError, fmt"'{action}' is unknown")
-
-  jobs.handle(nomad, config)
+  let handle = action.handler
+  try:
+    jobs.handle(nomad, config)
+  except CatchableError as e:
+    raise newException(ActionError, fmt"{e.msg}")

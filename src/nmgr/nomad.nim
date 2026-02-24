@@ -1,4 +1,4 @@
-import std/[json, paths, strformat, strutils]
+import std/[paths, sequtils, strformat]
 import ./[config, errors, jobs, logging]
 import ./nomad/[api, cli, hclparser, jsonparser]
 
@@ -19,13 +19,6 @@ func extractImages*(spec: string): seq[string] =
 func getSpecImage*(self; spec: string): seq[string] =
   result = extractImages(spec)
 
-proc isRunning*(self; jobName: string): bool =
-  let response = self.api.get("/v1/job/" & jobName).parseResponse()
-  if not response.hasKey("Status"):
-    return false
-  let status = response["Status"].getStr.toLowerAscii
-  result = status == "running"
-
 proc getLiveImage*(self; jobName: string): seq[string] =
   let response = self.api.get("/v1/job/" & jobName).parseResponse()
   result = response.parseImages()
@@ -44,10 +37,13 @@ proc getAllocId*(self; jobName: string): string =
   if result.len == 0:
     raise newException(NomadError, fmt"No allocation found for {jobName}")
 
-proc getRunningJobs*(self): seq[string] =
-  let response = self.api.get("/v1/jobs").parseResponse()
-  result = response.parseJobs()
-  debug fmt"Running jobs from API: {result}"
+proc getRunningJobs*(self): seq[NomadJob] =
+  let
+    response = self.api.get("/v1/jobs").parseResponse()
+    jobs = response.parseJobs()
+  for job in jobs:
+    result.add(NomadJob(name: job, isRunning: true))
+  debug fmt"Running jobs from API: {result.mapIt(it.name)}"
 
 proc runJob*(self; job: NomadJob): void =
   var cmd = @["nomad", "run"]

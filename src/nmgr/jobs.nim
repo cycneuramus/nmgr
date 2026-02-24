@@ -10,6 +10,7 @@ type NomadJob* = object
   name*: string
   specPath*: Path
   configPaths*: seq[Path]
+  isRunning*: bool
 
 proc readSpec*(specPath: string): string =
   try:

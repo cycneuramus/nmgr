@@ -1,5 +1,5 @@
 import std/[paths, tables, unittest]
-import ../src/nmgr/[action, config, jobs, nomad, registry]
+import ../src/nmgr/[action, config, errors, jobs, nomad, registry]
 
 const actions =
   @["up", "down", "find", "list", "image", "logs", "exec", "shell", "reconcile", "edit"]
@@ -23,15 +23,22 @@ suite "Action Handler":
     for a in actions:
       check registry.hasKey(a)
 
-  test "handle raises UnknownActionError for unknown action":
+  test "handle raises ActionError on handler errors":
     let
-      registry = initActionRegistry()
       jobs = @[makeJob("app")]
       config = makeConfig()
       nomadClient = NomadClient(config: config)
 
-    expect UnknownActionError:
-      handle("nonexistent", registry, jobs, nomadClient, config)
+    expect ActionError:
+      handle(
+        Action(
+          handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+            raise newException(KeyError, "error message")
+        ),
+        jobs,
+        nomadClient,
+        config,
+      )
 
   test "handle calls handler for known action":
     var
@@ -41,9 +48,11 @@ suite "Action Handler":
 
     registry.add(
       "testAction",
-      proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
-        handlerCalled = true
-        receivedJobs = jobs,
+      Action(
+        handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+          handlerCalled = true
+          receivedJobs = jobs
+      ),
     )
 
     let
@@ -51,7 +60,7 @@ suite "Action Handler":
       config = makeConfig()
       nomadClient = NomadClient(config: config)
 
-    handle("testAction", registry, jobs, nomadClient, config)
+    handle(registry["testAction"], jobs, nomadClient, config)
 
     check:
       handlerCalled == true
@@ -65,8 +74,10 @@ suite "Action Handler":
     var registry = initActionRegistry()
     registry.add(
       "testAction",
-      proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
-        receivedInfraJobs = config.infraJobs,
+      Action(
+        handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+          receivedInfraJobs = config.infraJobs
+      ),
     )
 
     let jobs = @[makeJob("app")]
@@ -74,7 +85,7 @@ suite "Action Handler":
     config.infraJobs = @["infra"]
     let nomadClient = NomadClient(config: config)
 
-    handle("testAction", registry, jobs, nomadClient, config)
+    handle(registry["testAction"], jobs, nomadClient, config)
 
     check receivedInfraJobs == @["infra"]
 
@@ -84,8 +95,10 @@ suite "Action Handler":
     var registry = initActionRegistry()
     registry.add(
       "testAction",
-      proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
-        receivedDryRun = nomad.dryRun,
+      Action(
+        handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+          receivedDryRun = nomad.dryRun
+      ),
     )
 
     let
@@ -93,6 +106,6 @@ suite "Action Handler":
       config = makeConfig()
       nomadClient = NomadClient(config: config, dryRun: true)
 
-    handle("testAction", registry, jobs, nomadClient, config)
+    handle(registry["testAction"], jobs, nomadClient, config)
 
     check receivedDryRun == true

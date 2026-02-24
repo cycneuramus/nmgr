@@ -42,49 +42,62 @@ proc main() =
       try:
         configPath.parse()
       except ConfigError as e:
-        fatal e.msg
+        fatal fmt"Error parsing config: {e.msg}"
         quit(1)
 
-    action = args.action
-    targets = args.targets
+  let action =
+    try:
+      actionRegistry[args.action]
+    except KeyError:
+      fatal fmt"Unknown action: '{args.action}'"
+      quit(1)
+  debug fmt""" Action '{args.action}' found:
+    nomadInterface: {action.nomadInterface},
+    isSingleJob: {action.isSingleJob}""".dedent()
 
-    definedJobs =
-      try:
-        getDefinedJobs(parsedConfig)
-      except JobError as e:
-        fatal e.msg
-        quit(1)
+  let targets = args.targets
 
-    nomad = NomadClient(
-      config: parsedConfig,
-      dryRun: args.dry_run,
-      detach: args.detach,
-      purge: args.purge,
-      api: NomadApi(server: parsedConfig.server, http: newHttp()),
-      cli: NomadCli(),
-    )
+  let nomad = NomadClient(
+    config: parsedConfig,
+    dryRun: args.dry_run,
+    detach: args.detach,
+    purge: args.purge,
+    api: NomadApi(server: parsedConfig.server, http: newHttp()),
+    cli: NomadCli(),
+  )
 
   var
     targetedJobs: seq[NomadJob]
     seenJobs: seq[string]
 
+  let runningJobs =
+    try:
+      getRunningJobs(nomad)
+    except CatchableError as e:
+      fatal fmt"Error fetching running jobs: {e.msg}"
+      quit(1)
+
+  var definedJobs =
+    try:
+      getDefinedJobs(parsedConfig)
+    except CatchableError as e:
+      fatal fmt"Error getting defined jobs: {e.msg}"
+      quit(1)
+
+  for job in definedJobs.mitems:
+    if runningJobs.anyIt(it.name == job.name):
+      job.isRunning = true
+
+  let allJobs = if action.nomadInterface == niApi: runningJobs else: definedJobs
+
   for target in targets:
     let filteredJobs =
       # NOTE: 'find' action is treated as an on-the-fly config filter for now
-      if action == "find":
-        configFilter(target)(definedJobs, parsedConfig)
-      elif action == "down":
-        try:
-          let
-            runningJobNames = getRunningJobs(nomad)
-            runningJobs = runningJobNames.mapIt(NomadJob(name: it))
-          target.filter(runningJobs, targetRegistry, parsedConfig)
-        except CatchableError as e:
-          fatal fmt"Error fetching running jobs: {e.msg}"
-          quit(1)
+      if args.action == "find":
+        configFilter(target)(allJobs, parsedConfig)
       else:
         try:
-          target.filter(definedJobs, targetRegistry, parsedConfig)
+          target.filter(allJobs, targetRegistry, parsedConfig)
         except CatchableError as e:
           fatal fmt"Error filtering on target: {e.msg}"
           quit(1)
@@ -97,14 +110,13 @@ proc main() =
 
   debug fmt"Targeting jobs: {targetedJobs.mapIt(it.name)}"
 
-  const singleJobActions = ["edit", "exec", "logs", "shell"]
-  if action in singleJobActions and targetedJobs.len > 1:
+  if action.isSingleJob and targetedJobs.len > 1:
     fatal fmt"The {action} action only supports a single job"
     quit(1)
 
   try:
-    action.handle(actionRegistry, targetedJobs, nomad, parsedConfig)
-  except CatchableError as e:
+    action.handle(targetedJobs, nomad, parsedConfig)
+  except ActionError as e:
     fatal fmt"Error handling action: {e.msg}"
     quit(1)
 
