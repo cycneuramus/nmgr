@@ -34,7 +34,7 @@ proc getTasks*(self; jobName: string): seq[string] =
     raise newException(NomadError, fmt"No tasks found for {jobName}")
 
 proc getAllocId*(self; jobName: string): string =
-  let response = self.api.get("/v1/job/" & jobname & "/allocations").parseResponse()
+  let response = self.api.get("/v1/job/" & jobName & "/allocations").parseResponse()
   result = response.parseAllocId()
   if result.len == 0:
     raise newException(NomadError, fmt"No allocation found for {jobName}")
