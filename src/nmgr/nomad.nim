@@ -16,14 +16,16 @@ func extractImages*(spec: string): seq[string] =
   let content = parseHcl(spec)
   result = content.getImages()
 
-func getSpecImage*(self; spec: string): seq[string] =
+proc getSpecImage*(self; spec: string): seq[string] =
   result = extractImages(spec)
+  if result.len == 0:
+    raise newException(NomadError, fmt"No spec images found in {spec}")
 
 proc getLiveImage*(self; jobName: string): seq[string] =
   let response = self.api.get("/v1/job/" & jobName).parseResponse()
   result = response.parseImages()
   if result.len == 0:
-    raise newException(NomadError, fmt"No images found for {jobName}")
+    raise newException(NomadError, fmt"No live images found for {jobName}")
 
 proc getTasks*(self; jobName: string): seq[string] =
   let response = self.api.get("/v1/job/" & jobName).parseResponse()

@@ -67,9 +67,18 @@ proc listHandler(jobs, nomad, config): void =
 
 proc imageHandler(jobs, nomad, config): void =
   for job in jobs:
-    let
-      live = nomad.getLiveImage(job.name).join("\n")
-      spec = nomad.getSpecImage(readSpec($job.specPath)).join("\n")
+    let live =
+      try:
+        nomad.getLiveImage(job.name).join("\n")
+      except NomadError as e:
+        debug e.msg
+        continue
+    let spec =
+      try:
+        nomad.getSpecImage(readSpec($job.specPath)).join("\n")
+      except NomadError as e:
+        debug e.msg
+        continue
 
     var separator = ""
     if jobs.len > 1:
@@ -118,8 +127,18 @@ proc reconcileHandler(jobs, nomad, config): void =
       debug fmt"Job {job.name} is not running; skipping"
       continue
 
-    let liveImage = nomad.getLiveImage(job.name)
-    let specImage = nomad.getSpecImage(readSpec($job.specPath))
+    let liveImage =
+      try:
+        nomad.getLiveImage(job.name)
+      except NomadError as e:
+        debug e.msg
+        continue
+    let specImage =
+      try:
+        nomad.getSpecImage(readSpec($job.specPath))
+      except NomadError as e:
+        debug e.msg
+        continue
 
     if liveImage == specImage:
       debug fmt"No changes for {job.name}; skipping"
