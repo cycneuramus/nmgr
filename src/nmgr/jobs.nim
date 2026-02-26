@@ -12,14 +12,14 @@ type NomadJob* = object
   configPaths*: seq[Path]
   isRunning*: bool
 
-proc readSpec*(specPath: string): string =
+proc readSpec*(specPath: Path): string =
   try:
-    result = readFile(specPath)
+    result = readFile($specPath)
   except CatchableError as e:
-    raise newException(JobError, fmt"Unable to read spec file {specPath}: {e.msg}")
+    raise newException(JobError, fmt"Unable to read spec file {$specPath}: {e.msg}")
 
 proc getJobName(specPath: Path): string =
-  let spec = readSpec($specPath)
+  let spec = readSpec(specPath)
   let content = parseHcl(spec)
   result = content.getJobName.get("")
 

@@ -16,10 +16,11 @@ func extractImages*(spec: string): seq[string] =
   let content = parseHcl(spec)
   result = content.getImages()
 
-proc getSpecImage*(self; spec: string): seq[string] =
+proc getSpecImage*(self; specPath: Path): seq[string] =
+  let spec = readSpec(specPath)
   result = extractImages(spec)
   if result.len == 0:
-    raise newException(NomadError, fmt"No spec images found in {spec}")
+    raise newException(NomadError, fmt"No spec images found in {$specPath}")
 
 proc getLiveImage*(self; jobName: string): seq[string] =
   let response = self.api.get("/v1/job/" & jobName).parseResponse()

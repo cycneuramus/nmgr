@@ -75,7 +75,7 @@ proc imageHandler(jobs, nomad, config): void =
         continue
     let spec =
       try:
-        nomad.getSpecImage(readSpec($job.specPath)).join("\n")
+        nomad.getSpecImage(job.specPath).join("\n")
       except NomadError as e:
         debug e.msg
         continue
@@ -135,7 +135,7 @@ proc reconcileHandler(jobs, nomad, config): void =
         continue
     let specImage =
       try:
-        nomad.getSpecImage(readSpec($job.specPath))
+        nomad.getSpecImage(job.specPath)
       except NomadError as e:
         debug e.msg
         continue
