@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.1](https://github.com/cycneuramus/nmgr/compare/v1.2.0...v1.2.1) (2026-02-26)
+
+
+### Bug Fixes
+
+* Don't duplicate live images in output for jobs using same image in multiple tasks ([264fce1](https://github.com/cycneuramus/nmgr/commit/264fce19159613f23a112e39289bfdb653b208c3))
+* Handle jobs of non-service type lacking container images ([fbf55eb](https://github.com/cycneuramus/nmgr/commit/fbf55eb0d94a1c073a796f86a7504ce49e99b8d8))
+
+
+### Performance Improvements
+
+* Replace redundant API calls with improved state storage ([7d1cca7](https://github.com/cycneuramus/nmgr/commit/7d1cca7c245a080ecfdb33b80b553461dad33a53))
+* Use streaming iterator on filter matching instead of reading entire files ([73f925c](https://github.com/cycneuramus/nmgr/commit/73f925c5ee442bfa685cdb22518ce8b79a6da0dc))
+
 ## [1.2.0](https://github.com/cycneuramus/nmgr/compare/v1.1.0...v1.2.0) (2026-02-22)
 
 
