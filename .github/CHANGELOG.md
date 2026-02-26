@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.2](https://github.com/cycneuramus/nmgr/compare/v1.2.1...v1.2.2) (2026-02-26)
+
+
+### Bug Fixes
+
+* Add HTTP client timeout ([ce88566](https://github.com/cycneuramus/nmgr/commit/ce88566a265fa049878343c6ef38cd483ac14776))
+* Raise error with HCL spec path, not content ([d79e151](https://github.com/cycneuramus/nmgr/commit/d79e1511e780c4208685ff0e16dd3db663bbb13e))
+* Validate EDITOR env var and avoid shell execution ([aff630f](https://github.com/cycneuramus/nmgr/commit/aff630f35fd963be1186eedde25c26636eef89cb))
+
+
+### Performance Improvements
+
+* Compute config paths on-demand, not during job discovery ([763e2a3](https://github.com/cycneuramus/nmgr/commit/763e2a313f9ceaaa1780c95e03e04031f4c8a6f6))
+
 ## [1.2.1](https://github.com/cycneuramus/nmgr/compare/v1.2.0...v1.2.1) (2026-02-26)
 
 
