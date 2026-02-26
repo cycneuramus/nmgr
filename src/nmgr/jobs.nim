@@ -39,13 +39,9 @@ proc matchesFilter*(
   for path in paths:
     if not fileExists(path):
       continue
-    let content =
-      try:
-        readFile($path)
-      except IOError:
-        continue
-    for line in content.splitLines:
+    for line in lines($path):
       if line.contains(filter.pattern):
+        debug fmt"{job.name}: File '{$splitPath(path).tail}' matches pattern '{filter.pattern}'"
         return true
 
   return false
