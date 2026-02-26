@@ -9,7 +9,7 @@ type NomadApi* = object
 using self: NomadApi
 
 proc newHttp*(): HttpClient =
-  var client = newHttpClient()
+  var client = newHttpClient(timeout = 5000)
   client.headers.add("Content-Type", "application/json")
   return client
 
