@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3](https://github.com/cycneuramus/nmgr/compare/v1.2.2...v1.2.3) (2026-02-26)
+
+
+### Bug Fixes
+
+* Prevent reconcile false-positives due to unsorted image seqs ([7396090](https://github.com/cycneuramus/nmgr/commit/739609088d41883aaa7144bc09acf431b922a76d))
+
 ## [1.2.2](https://github.com/cycneuramus/nmgr/compare/v1.2.1...v1.2.2) (2026-02-26)
 
 
