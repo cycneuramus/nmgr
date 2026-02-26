@@ -1,4 +1,4 @@
-import std/[paths, sequtils, strformat]
+import std/[algorithm, paths, sequtils, strformat]
 import ./[config, errors, jobs, logging]
 import ./nomad/[api, cli, hclparser, jsonparser]
 
@@ -18,13 +18,13 @@ func extractImages*(spec: string): seq[string] =
 
 proc getSpecImage*(self; specPath: Path): seq[string] =
   let spec = readSpec(specPath)
-  result = extractImages(spec)
+  result = extractImages(spec).sorted()
   if result.len == 0:
     raise newException(NomadError, fmt"No spec images found in {$specPath}")
 
 proc getLiveImage*(self; jobName: string): seq[string] =
   let response = self.api.get("/v1/job/" & jobName).parseResponse()
-  result = response.parseImages()
+  result = response.parseImages().sorted()
   if result.len == 0:
     raise newException(NomadError, fmt"No live images found for {jobName}")
 
