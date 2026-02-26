@@ -13,7 +13,7 @@ func makeConfig(): Config =
   )
 
 func makeJob(name: string): NomadJob =
-  NomadJob(name: name, specPath: ("/tmp/" & name & "/job.hcl").Path, configPaths: @[])
+  NomadJob(name: name, specPath: ("/tmp/" & name & "/job.hcl").Path)
 
 suite "Action Handler":
   test "initActionRegistry creates registry with all actions":

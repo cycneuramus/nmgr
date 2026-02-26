@@ -9,7 +9,6 @@ const specExts = [".hcl", ".nomad"]
 type NomadJob* = object
   name*: string
   specPath*: Path
-  configPaths*: seq[Path]
   isRunning*: bool
 
 proc readSpec*(specPath: Path): string =
@@ -64,7 +63,4 @@ proc getDefinedJobs*(config: Config): seq[NomadJob] =
       if name == "":
         warn fmt"Could not extract job name from {path.string}"
 
-      let configDir = parentDir(path)
-      let configPaths = findConfigs(configDir, config.jobConfigPatterns)
-
-      result.add(NomadJob(name: name, specPath: path, configPaths: configPaths))
+      result.add(NomadJob(name: name, specPath: path))

@@ -35,13 +35,13 @@ suite "Job Operations":
       removeFile(specFile)
       removeDir(tempDir)
 
-    let result = readSpec(specFile)
+    let result = readSpec(Path(specFile))
 
     check result == content
 
   test "readSpec raises JobError for missing file":
     expect JobError:
-      discard readSpec("/nonexistent/path/job.hcl")
+      discard readSpec(Path("/nonexistent/path/job.hcl"))
 
   test "matchesFilter finds pattern in file":
     let tempDir = getTempDir() / "nmgr_filter_test"
@@ -54,7 +54,7 @@ suite "Job Operations":
       removeFile(testFile)
       removeDir(tempDir)
 
-    let job = NomadJob(name: "test", specPath: testFile.Path, configPaths: @[])
+    let job = NomadJob(name: "test", specPath: testFile.Path)
     let filter = makeFilter("DATABASE_URL")
     let config = makeConfig()
 
@@ -73,7 +73,7 @@ suite "Job Operations":
       removeFile(testFile)
       removeDir(tempDir)
 
-    let job = NomadJob(name: "test", specPath: testFile.Path, configPaths: @[])
+    let job = NomadJob(name: "test", specPath: testFile.Path)
     let filter = makeFilter("DATABASE_URL")
     let config = makeConfig()
 
@@ -95,7 +95,7 @@ suite "Job Operations":
       removeFile(file2)
       removeDir(tempDir)
 
-    let job = NomadJob(name: "test", specPath: file1.Path, configPaths: @[file2.Path])
+    let job = NomadJob(name: "test", specPath: file1.Path)
     let filter = makeFilter("KEY2")
     let config = makeConfig()
 
@@ -104,8 +104,7 @@ suite "Job Operations":
     check result == true
 
   test "matchesFilter skips non-existent files":
-    let job =
-      NomadJob(name: "test", specPath: "/nonexistent/spec.hcl".Path, configPaths: @[])
+    let job = NomadJob(name: "test", specPath: "/nonexistent/spec.hcl".Path)
     let filter = makeFilter("anything")
     let config = makeConfig()
 
@@ -247,37 +246,6 @@ suite "Job Operations":
     check:
       result.len == 1
       result[0].name == "myjob"
-
-  test "getDefinedJobs discovers config files":
-    let baseDir = getTempDir() / "nmgr_config_test"
-    let jobDir = baseDir / "api"
-    createDir(jobDir)
-
-    let specFile = jobDir / "api.nomad"
-    let envFile = jobDir / "prod.env"
-    writeFile(specFile, "job \"api-server\" {}")
-    writeFile(envFile, "ENV=production")
-
-    defer:
-      removeFile(specFile)
-      removeFile(envFile)
-      removeDir(jobDir)
-      removeDir(baseDir)
-
-    let config = Config(
-      baseDir: baseDir.Path,
-      infraJobs: @[],
-      filters: initTable[string, Filter](),
-      jobConfigPatterns: @[".env"],
-      server: "http://localhost:4646",
-    )
-
-    let result = getDefinedJobs(config)
-
-    check:
-      result.len == 1
-      result[0].configPaths.len == 1
-      result[0].configPaths[0] == envFile.Path
 
   test "getDefinedJobs ignores configured ignore dirs":
     let baseDir = getTempDir() / "nmgr_ignoredir_test"

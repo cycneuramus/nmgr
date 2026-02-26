@@ -1,4 +1,4 @@
-import std/[algorithm, sequtils, strformat, tables, with]
+import std/[algorithm, paths, sequtils, strformat, tables, with]
 import ./[config, errors, jobs, logging, registry]
 
 type TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
@@ -39,7 +39,8 @@ func configFilter*(target): TargetFilter =
 
       var paths = @[job.specPath]
       if filter.extendedSearch:
-        paths.add(job.configPaths)
+        let configs = findConfigs(job.specPath.parentDir, config.jobConfigPatterns)
+        paths.add(configs)
 
       if job.matchesFilter(filter, paths, config):
         result.add(job)

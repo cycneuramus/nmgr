@@ -10,7 +10,7 @@ func makeConfig(infraJobs: seq[string] = @[]): Config =
   )
 
 func makeJob(name: string): NomadJob =
-  NomadJob(name: name, specPath: ("/tmp/" & name & "/job.hcl").Path, configPaths: @[])
+  NomadJob(name: name, specPath: ("/tmp/" & name & "/job.hcl").Path)
 
 let registry = initTargetRegistry()
 
