@@ -1,4 +1,4 @@
-import std/[json, strformat, strutils]
+import std/[json, sequtils, strformat, strutils]
 import ../[errors, logging]
 
 proc parseResponse*(body: string): JsonNode =
@@ -28,12 +28,13 @@ func parseImages*(json: JsonNode): seq[string] =
             if image.len > 0 and not image.contains("local."):
               result.add(image)
           for _, value in node:
-            result = result & checkImage(value)
+            result.add(checkImage(value))
         elif node.kind == JArray:
           for item in node.items:
-            result = result & checkImage(item)
+            result.add(checkImage(item))
 
-      result = result & checkImage(config)
+      result.add(checkImage(config))
+      result = result.deduplicate()
 
 func parseTasks*(json: JsonNode): seq[string] =
   if not json.hasKey("TaskGroups"):
@@ -43,7 +44,7 @@ func parseTasks*(json: JsonNode): seq[string] =
       continue
     for task in taskGroup["Tasks"].items:
       if task.hasKey("Name"):
-        result.add task["Name"].getStr("")
+        result.add(task["Name"].getStr(""))
 
 func parseAllocId*(json: JsonNode): string =
   if json.kind != JArray:
