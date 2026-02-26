@@ -1,4 +1,4 @@
-import std/[os, paths, strformat, strutils, with]
+import std/[os, osproc, paths, strformat, strutils, with]
 import ./[config, errors, jobs, logging, nomad, registry]
 
 type
@@ -159,8 +159,12 @@ proc editHandler(jobs, nomad, config): void =
   if editor.len == 0:
     error "'$EDITOR environment variable not set"
     return
+  if editor.splitWhitespace().len > 1:
+    error fmt"Invalid $EDITOR: {editor}"
 
-  discard execShellCmd(fmt "{editor} '{spec}'")
+  let process =
+    startProcess(editor, args = [$spec], options = {poParentStreams, poUsePath})
+  discard waitForExit(process)
 
 func initActionRegistry*(): Registry[Action] =
   var registry = Action.initRegistry
