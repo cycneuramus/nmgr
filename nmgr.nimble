@@ -1,6 +1,6 @@
 # Package
 
-version = "1.2.2" # x-release-please-version
+version = "1.2.3" # x-release-please-version
 author = "cycneuramus"
 description = "Programmatically manage jobs in a Nomad cluster"
 license = "GPL-3.0-only"
