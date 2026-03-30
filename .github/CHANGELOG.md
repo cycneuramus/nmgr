@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.4](https://github.com/cycneuramus/nmgr/compare/v1.2.3...v1.2.4) (2026-03-30)
+
+
+### Bug Fixes
+
+* Don't break target groups by pre-filtering on job running state ([36fbf57](https://github.com/cycneuramus/nmgr/commit/36fbf576659e2c9249ab97dbff55859417cc890e))
+
 ## [1.2.3](https://github.com/cycneuramus/nmgr/compare/v1.2.2...v1.2.3) (2026-02-26)
 
 
