@@ -66,10 +66,6 @@ proc main() =
     cli: NomadCli(),
   )
 
-  var
-    targetedJobs: seq[NomadJob]
-    seenJobs: seq[string]
-
   let runningJobs =
     try:
       getRunningJobs(nomad)
@@ -85,19 +81,20 @@ proc main() =
       quit(1)
 
   for job in definedJobs.mitems:
-    if runningJobs.anyIt(it.name == job.name):
-      job.isRunning = true
+    job.isRunning = runningJobs.anyIt(it.name == job.name)
 
-  let allJobs = if action.nomadInterface == niApi: runningJobs else: definedJobs
+  var
+    targetedJobs: seq[NomadJob]
+    seenJobs: seq[string]
 
   for target in targets:
     let filteredJobs =
       # NOTE: 'find' action is treated as an on-the-fly config filter for now
       if args.action == "find":
-        configFilter(target)(allJobs, parsedConfig)
+        configFilter(target)(definedJobs, parsedConfig)
       else:
         try:
-          target.filter(allJobs, targetRegistry, parsedConfig)
+          target.filter(definedJobs, targetRegistry, parsedConfig)
         except CatchableError as e:
           fatal fmt"Error filtering on target: {e.msg}"
           quit(1)
