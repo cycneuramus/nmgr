@@ -26,12 +26,8 @@ func configFilter*(target): TargetFilter =
   ## Filters on jobs matching config-defined patterns
   # NOTE: configFilter is a special case needing a filter name param, whence the closure
   return proc(jobs, config): seq[NomadJob] =
-    let filter =
-      try:
-        config.filters[target]
-      except KeyError:
-        # HACK: On-the-fly filter fallback for 'find' action
-        Filter(pattern: target)
+    # HACK: On-the-fly filter fallback for 'find' action
+    let filter = config.filters.getOrDefault(target, Filter(pattern: target))
 
     for job in jobs:
       if filter.excludeInfra and job.name in config.infraJobs:
