@@ -7,14 +7,13 @@ type
     niApi
 
   Action* = object
-    handler*: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config): void
+    handler*: proc(jobs: seq[NomadJob], nomad: NomadClient): void
     nomadInterface*: NomadInterface = niCli
     isSingleJob*: bool = false
 
 using
   jobs: seq[NomadJob]
   nomad: NomadClient
-  config: Config
 
 proc selectTask(nomad; job: NomadJob): string =
   let tasks = nomad.getTasks(job.name)
@@ -40,7 +39,7 @@ proc selectTask(nomad; job: NomadJob): string =
     except CatchableError:
       echo "Please enter a valid number."
 
-proc upHandler(jobs, nomad, config): void =
+proc upHandler(jobs, nomad): void =
   for job in jobs:
     if job.isRunning:
       debug fmt"Job {job.name} is already running"
@@ -49,7 +48,7 @@ proc upHandler(jobs, nomad, config): void =
     debug fmt"Bringing job UP: {job.name}"
     nomad.runJob(job)
 
-proc downHandler(jobs, nomad, config): void =
+proc downHandler(jobs, nomad): void =
   for job in jobs:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
@@ -58,15 +57,15 @@ proc downHandler(jobs, nomad, config): void =
     debug fmt"Bringing job DOWN: {job.name}"
     nomad.stopJob(job.name)
 
-proc findHandler(jobs, nomad, config): void =
+proc findHandler(jobs, nomad): void =
   for job in jobs:
     echo job.name
 
-proc listHandler(jobs, nomad, config): void =
+proc listHandler(jobs, nomad): void =
   for job in jobs:
     echo job.name
 
-proc imageHandler(jobs, nomad, config): void =
+proc imageHandler(jobs, nomad): void =
   for job in jobs:
     let live =
       try:
@@ -88,7 +87,7 @@ proc imageHandler(jobs, nomad, config): void =
 
     echo &"Live images:\n{live}\n\nSpec images:\n{spec}{separator}"
 
-proc logsHandler(jobs, nomad, config): void =
+proc logsHandler(jobs, nomad): void =
   let
     job = jobs[0]
     task = nomad.selectTask(job)
@@ -97,7 +96,7 @@ proc logsHandler(jobs, nomad, config): void =
 
   nomad.tailLogs(taskName = task, jobName = job.name)
 
-proc execHandler(jobs, nomad, config): void =
+proc execHandler(jobs, nomad): void =
   let
     job = jobs[0]
     task = nomad.selectTask(job)
@@ -108,7 +107,7 @@ proc execHandler(jobs, nomad, config): void =
   let subCmd = readLine(stdin)
   discard nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.split())
 
-proc shellHandler(jobs, nomad, config): void =
+proc shellHandler(jobs, nomad): void =
   let
     job = jobs[0]
     task = nomad.selectTask(job)
@@ -122,7 +121,7 @@ proc shellHandler(jobs, nomad, config): void =
 
   error fmt"No shell found in {job.name} container"
 
-proc reconcileHandler(jobs, nomad, config): void =
+proc reconcileHandler(jobs, nomad): void =
   for job in jobs:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
@@ -144,14 +143,14 @@ proc reconcileHandler(jobs, nomad, config): void =
     if liveImage == specImage:
       debug fmt"No changes for {job.name}; skipping"
       continue
-    if job.name in config.infraJobs:
+    if job.name in nomad.config.infraJobs:
       info fmt"Skipping infra job: {job.name}"
       continue
 
     info fmt"Reconciling job {job.name}: image changed. Restarting..."
     nomad.runJob(job)
 
-proc editHandler(jobs, nomad, config): void =
+proc editHandler(jobs, nomad): void =
   let
     job = jobs[0]
     spec = job.specPath
@@ -187,11 +186,9 @@ func initActionRegistry*(): Registry[Action] =
     add("edit", Action(handler: editHandler, isSingleJob: true))
   return registry
 
-proc handle*(
-    action: Action, jobs: seq[NomadJob], nomad: NomadClient, config: Config
-): void =
+proc handle*(action: Action, jobs: seq[NomadJob], nomad: NomadClient): void =
   let handle = action.handler
   try:
-    jobs.handle(nomad, config)
+    jobs.handle(nomad)
   except CatchableError as e:
     raise newException(ActionError, fmt"{e.msg}")

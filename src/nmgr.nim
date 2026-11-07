@@ -115,7 +115,7 @@ proc main() =
     quit(1)
 
   try:
-    action.handle(targetedJobs, nomad, parsedConfig)
+    action.handle(targetedJobs, nomad)
   except ActionError as e:
     fatal fmt"Error handling action: {e.msg}"
     quit(1)

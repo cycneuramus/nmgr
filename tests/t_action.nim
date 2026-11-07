@@ -32,12 +32,11 @@ suite "Action Handler":
     expect ActionError:
       handle(
         Action(
-          handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+          handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
             raise newException(KeyError, "error message")
         ),
         jobs,
         nomadClient,
-        config,
       )
 
   test "handle calls handler for known action":
@@ -49,7 +48,7 @@ suite "Action Handler":
     registry.add(
       "testAction",
       Action(
-        handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+        handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
           handlerCalled = true
           receivedJobs = jobs
       ),
@@ -60,7 +59,7 @@ suite "Action Handler":
       config = makeConfig()
       nomadClient = NomadClient(config: config)
 
-    handle(registry["testAction"], jobs, nomadClient, config)
+    handle(registry["testAction"], jobs, nomadClient)
 
     check:
       handlerCalled == true
@@ -75,8 +74,8 @@ suite "Action Handler":
     registry.add(
       "testAction",
       Action(
-        handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
-          receivedInfraJobs = config.infraJobs
+        handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
+          receivedInfraJobs = nomad.config.infraJobs
       ),
     )
 
@@ -85,7 +84,7 @@ suite "Action Handler":
     config.infraJobs = @["infra"]
     let nomadClient = NomadClient(config: config)
 
-    handle(registry["testAction"], jobs, nomadClient, config)
+    handle(registry["testAction"], jobs, nomadClient)
 
     check receivedInfraJobs == @["infra"]
 
@@ -96,7 +95,7 @@ suite "Action Handler":
     registry.add(
       "testAction",
       Action(
-        handler: proc(jobs: seq[NomadJob], nomad: NomadClient, config: Config) =
+        handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
           receivedDryRun = nomad.dryRun
       ),
     )
@@ -106,6 +105,6 @@ suite "Action Handler":
       config = makeConfig()
       nomadClient = NomadClient(config: config, dryRun: true)
 
-    handle(registry["testAction"], jobs, nomadClient, config)
+    handle(registry["testAction"], jobs, nomadClient)
 
     check receivedDryRun == true
