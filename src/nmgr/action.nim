@@ -44,6 +44,7 @@ proc upHandler(jobs, nomad, config): void =
   for job in jobs:
     if job.isRunning:
       debug fmt"Job {job.name} is already running"
+      continue
 
     debug fmt"Bringing job UP: {job.name}"
     nomad.runJob(job)
