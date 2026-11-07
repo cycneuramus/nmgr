@@ -165,6 +165,8 @@ proc editHandler(jobs, nomad, config): void =
 
   let process =
     startProcess(editor, args = [$spec], options = {poParentStreams, poUsePath})
+  defer:
+    process.close()
   discard waitForExit(process)
 
 func initActionRegistry*(): Registry[Action] =
