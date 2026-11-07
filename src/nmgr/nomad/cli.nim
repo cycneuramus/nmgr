@@ -24,5 +24,7 @@ proc run*(self; cmd: seq[string], dryRun: bool, workingDir: string = ""): int =
     workingDir = workingDir,
     options = {poUsePath, poParentStreams},
   )
+  defer:
+    process.close()
 
   result = process.waitForExit()
