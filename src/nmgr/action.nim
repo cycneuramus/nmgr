@@ -161,6 +161,7 @@ proc editHandler(jobs, nomad, config): void =
     return
   if editor.splitWhitespace().len > 1:
     error fmt"Invalid $EDITOR: {editor}"
+    return
 
   let process =
     startProcess(editor, args = [$spec], options = {poParentStreams, poUsePath})
