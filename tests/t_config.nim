@@ -20,9 +20,9 @@ suite "Config Parser":
 
     check:
       config.baseDir.string == ""
-      config.infraJobs == @[""]
-      config.jobConfigPatterns == @[""]
-      config.ignoreDirs.len == 1 # split on empty returns array with empty string
+      config.infraJobs.len == 0
+      config.jobConfigPatterns.len == 0
+      config.ignoreDirs.len == 0
       config.filters.len == 0
       config.server == "http://127.0.0.1:4646" # default
 
@@ -96,7 +96,7 @@ suite "Config Parser":
 
     let config = parse(configPath)
 
-    check config.infraJobs == @[""]
+    check config.infraJobs.len == 0
 
   test "parse reads filter sections":
     let configPath = writeTempConfig(

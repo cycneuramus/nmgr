@@ -28,11 +28,12 @@ proc parse*(configPath: string): Config =
 
   with config:
     baseDir = parser.getSectionValue("general", "base_dir", "").Path.expandTilde
-    ignoreDirs =
-      parser.getSectionValue("general", "ignore_dirs", "").split(" ").mapIt(it.Path)
-    infraJobs = parser.getSectionValue("general", "infra_jobs", "").split(" ")
+    ignoreDirs = parser
+      .getSectionValue("general", "ignore_dirs", "").splitWhitespace
+      .mapIt(it.Path)
+    infraJobs = parser.getSectionValue("general", "infra_jobs", "").splitWhitespace
     jobConfigPatterns =
-      parser.getSectionValue("general", "job_config_patterns", "").split(" ")
+      parser.getSectionValue("general", "job_config_patterns", "").splitWhitespace
     filters = initTable[string, Filter]()
     server = parser.getSectionValue("general", "nomad_url", "http://127.0.0.1:4646")
 
