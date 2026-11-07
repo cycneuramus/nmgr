@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.5](https://github.com/cycneuramus/nmgr/compare/v1.2.4...v1.2.5) (2026-11-07)
+
+
+### Bug Fixes
+
+* Actually abort edit action on invalid editor ([1b8e447](https://github.com/cycneuramus/nmgr/commit/1b8e4477f8ed3f67f8b25c4531041a1328dbdc6d))
+* Actually skip running jobs instead of relying on 'nomad run' idempotency ([7cc86d9](https://github.com/cycneuramus/nmgr/commit/7cc86d9e913d9cb212124a83325f326aa76eece1))
+* Avoid crashing single-job actions on empty target ([0e9010c](https://github.com/cycneuramus/nmgr/commit/0e9010c28ed7a84b289b945cedcabee014c04d16))
+* Avoid empty strings in config parsing leading to false-positives ([0fbc84b](https://github.com/cycneuramus/nmgr/commit/0fbc84b79331e38597fe64a1c481216dd41dd20a))
+* Don't return HTTP response whatever the status code ([97460f4](https://github.com/cycneuramus/nmgr/commit/97460f4206e6607cdba6dee6b6ea43b48416e353))
+* Properly close editor process ([0f0066a](https://github.com/cycneuramus/nmgr/commit/0f0066a7d2373bae230873d80efdc0fdb91142e9))
+* Properly close nomad process ([65ade7a](https://github.com/cycneuramus/nmgr/commit/65ade7a111a020430724bf17923b77f6b1c3396c))
+
+
+### Performance Improvements
+
+* Avoid unneeded API calls on reconcile ([bc2786c](https://github.com/cycneuramus/nmgr/commit/bc2786c695bbe1afeb1dceb466a081d7d0ee8045))
+
 ## [1.2.4](https://github.com/cycneuramus/nmgr/compare/v1.2.3...v1.2.4) (2026-03-30)
 
 
