@@ -38,7 +38,7 @@ func configFilter*(target): TargetFilter =
         let configs = findConfigs(job.specPath.parentDir, config.jobConfigPatterns)
         paths.add(configs)
 
-      if job.matchesFilter(filter, paths, config):
+      if job.matchesFilter(filter, paths):
         result.add(job)
 
     result = result.sortedByIt(it.name)

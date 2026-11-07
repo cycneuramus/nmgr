@@ -58,7 +58,7 @@ suite "Job Operations":
     let filter = makeFilter("DATABASE_URL")
     let config = makeConfig()
 
-    let result = job.matchesFilter(filter, @[testFile.Path], config)
+    let result = job.matchesFilter(filter, @[testFile.Path])
 
     check result == true
 
@@ -77,7 +77,7 @@ suite "Job Operations":
     let filter = makeFilter("DATABASE_URL")
     let config = makeConfig()
 
-    let result = job.matchesFilter(filter, @[testFile.Path], config)
+    let result = job.matchesFilter(filter, @[testFile.Path])
 
     check result == false
 
@@ -99,7 +99,7 @@ suite "Job Operations":
     let filter = makeFilter("KEY2")
     let config = makeConfig()
 
-    let result = job.matchesFilter(filter, @[file1.Path, file2.Path], config)
+    let result = job.matchesFilter(filter, @[file1.Path, file2.Path])
 
     check result == true
 
@@ -108,7 +108,7 @@ suite "Job Operations":
     let filter = makeFilter("anything")
     let config = makeConfig()
 
-    let result = job.matchesFilter(filter, newSeq[Path](), config)
+    let result = job.matchesFilter(filter, newSeq[Path]())
 
     check result == false
 

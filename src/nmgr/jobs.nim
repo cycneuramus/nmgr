@@ -31,9 +31,7 @@ proc findConfigs*(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
         if fileName.contains(pattern):
           result.add(path)
 
-proc matchesFilter*(
-    job: NomadJob, filter: Filter, paths: seq[Path], config: Config
-): bool =
+proc matchesFilter*(job: NomadJob, filter: Filter, paths: seq[Path]): bool =
   ## Checks if any file in paths contains a line matching the pattern
   for path in paths:
     if not fileExists(path):
