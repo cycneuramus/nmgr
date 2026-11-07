@@ -107,6 +107,9 @@ proc main() =
 
   debug fmt"Targeting jobs: {targetedJobs.mapIt(it.name)}"
 
+  if targetedJobs.len == 0:
+    fatal "No jobs targeted"
+    quit(1)
   if action.isSingleJob and targetedJobs.len > 1:
     fatal fmt"The '{args.action}' action only supports a single job"
     quit(1)
