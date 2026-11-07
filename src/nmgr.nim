@@ -64,6 +64,7 @@ proc main() =
     cli: NomadCli(),
   )
 
+  # TODO: Not needed for e.g. edit, find, list actions
   let runningJobs =
     try:
       getRunningJobs(nomad)

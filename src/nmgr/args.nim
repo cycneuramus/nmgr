@@ -75,8 +75,8 @@ template parseArgs*(): untyped =
       let config =
         try:
           parse(defaultConfigPath)
-        except ConfigError as e:
-          fatal e.msg
+        except ConfigError as ce:
+          fatal ce.msg
           quit(1)
       for t in targetRegistry.keys:
         echo t
@@ -90,8 +90,8 @@ template parseArgs*(): untyped =
       let config =
         try:
           parse(defaultConfigPath)
-        except ConfigError as e:
-          fatal e.msg
+        except ConfigError as ce:
+          fatal ce.msg
           quit(1)
       let nomad = NomadClient(
         config: config, api: NomadApi(server: config.server, http: newHttp())
