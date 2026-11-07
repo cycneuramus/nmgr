@@ -1,15 +1,9 @@
 import std/[os, osproc, paths, strformat, strutils, with]
 import ./[config, errors, jobs, logging, nomad, registry]
 
-type
-  NomadInterface* = enum
-    niCli
-    niApi
-
-  Action* = object
-    handler*: proc(jobs: seq[NomadJob], nomad: NomadClient): void
-    nomadInterface*: NomadInterface = niCli
-    isSingleJob*: bool = false
+type Action* = object
+  handler*: proc(jobs: seq[NomadJob], nomad: NomadClient): void
+  isSingleJob*: bool = false
 
 using
   jobs: seq[NomadJob]
@@ -173,15 +167,13 @@ func initActionRegistry*(): Registry[Action] =
   var registry = Action.initRegistry
   with registry:
     add("up", Action(handler: upHandler))
-    add("down", Action(handler: downHandler, nomadInterface: niApi))
+    add("down", Action(handler: downHandler))
     add("find", Action(handler: findHandler))
     add("list", Action(handler: listHandler))
     add("image", Action(handler: imageHandler))
-    add("logs", Action(handler: logsHandler, nomadInterface: niApi, isSingleJob: true))
-    add("exec", Action(handler: execHandler, nomadInterface: niApi, isSingleJob: true))
-    add(
-      "shell", Action(handler: shellHandler, nomadInterface: niApi, isSingleJob: true)
-    )
+    add("logs", Action(handler: logsHandler, isSingleJob: true))
+    add("exec", Action(handler: execHandler, isSingleJob: true))
+    add("shell", Action(handler: shellHandler, isSingleJob: true))
     add("reconcile", Action(handler: reconcileHandler))
     add("edit", Action(handler: editHandler, isSingleJob: true))
   return registry

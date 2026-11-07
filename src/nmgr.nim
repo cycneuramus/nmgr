@@ -51,9 +51,7 @@ proc main() =
     except KeyError:
       fatal fmt"Unknown action: '{args.action}'"
       quit(1)
-  debug fmt""" Action '{args.action}' found:
-    nomadInterface: {action.nomadInterface},
-    isSingleJob: {action.isSingleJob}""".dedent()
+  debug fmt" Action '{args.action}' found: isSingleJob: {action.isSingleJob}"
 
   let targets = args.targets
 
