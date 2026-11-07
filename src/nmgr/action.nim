@@ -97,9 +97,10 @@ proc execHandler(jobs, nomad): void =
   if task.len < 1:
     return
 
-  echo fmt"Command to execute in {task}: "
+  stdout.write fmt"Command to execute in {task}: "
   let subCmd = readLine(stdin)
-  discard nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.split())
+  discard
+    nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.parseCmdLine())
 
 proc shellHandler(jobs, nomad): void =
   let
