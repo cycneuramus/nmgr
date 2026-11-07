@@ -185,4 +185,4 @@ proc handle*(action: Action, jobs: seq[NomadJob], nomad: NomadClient): void =
   try:
     jobs.handle(nomad)
   except CatchableError as e:
-    raise newException(ActionError, fmt"{e.msg}")
+    raise newException(ActionError, e.msg)

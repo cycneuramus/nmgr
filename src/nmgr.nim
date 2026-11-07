@@ -42,7 +42,7 @@ proc main() =
       try:
         configPath.parse()
       except ConfigError as e:
-        fatal fmt"Error parsing config: {e.msg}"
+        fatal e.msg
         quit(1)
 
   let action =
