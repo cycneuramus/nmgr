@@ -122,6 +122,10 @@ proc reconcileHandler(jobs, nomad): void =
       debug fmt"Job {job.name} is not running; skipping"
       continue
 
+    if job.name in nomad.config.infraJobs:
+      info fmt"Skipping infra job: {job.name}"
+      continue
+
     let liveImage =
       try:
         nomad.getLiveImage(job.name)
@@ -137,9 +141,6 @@ proc reconcileHandler(jobs, nomad): void =
 
     if liveImage == specImage:
       debug fmt"No changes for {job.name}; skipping"
-      continue
-    if job.name in nomad.config.infraJobs:
-      info fmt"Skipping infra job: {job.name}"
       continue
 
     info fmt"Reconciling job {job.name}: image changed. Restarting..."
