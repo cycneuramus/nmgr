@@ -48,7 +48,7 @@ template buildParser*(): untyped =
     )
 
     option(
-      "-c", "--config", help = fmt"Path to config file (default: ~/.config/nmgr/config)"
+      "-c", "--config", help = "Path to config file (default: ~/.config/nmgr/config)"
     )
 
     arg("action", help = "Action to perform")
