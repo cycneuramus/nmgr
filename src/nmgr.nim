@@ -1,4 +1,4 @@
-import std/[os, sequtils, streams, strformat]
+import std/[os, strformat]
 import ./nmgr/[action, args, config, errors, jobs, logging, nomad, target]
 import pkg/argparse
 

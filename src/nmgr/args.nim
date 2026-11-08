@@ -1,4 +1,4 @@
-import std/[parsecfg, strformat, strutils, tables]
+import std/[algorithm, os, parsecfg, streams, strformat, strutils, tables]
 import ./[action, completion, config, nomad, target]
 import pkg/argparse
 
