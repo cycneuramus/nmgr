@@ -6,8 +6,6 @@ proc main() =
   addHandler(newConsoleLogger(fmtStr = "$levelname: "))
   setLogFilter(lvlInfo)
 
-  ensureDefaultConfig()
-
   var argParser = buildParser()
   let args =
     try:
@@ -18,8 +16,8 @@ proc main() =
 
   if args.verbose:
     setLogFilter(lvlDebug)
-  if findExe("nomad").len == 0:
-    raise newException(NmgrError, "'nomad' executable not found")
+
+  ensureDefaultConfig()
 
   let
     config = parseConfig(args.config_opt.get(otherwise = defaultConfigPath))
@@ -32,6 +30,9 @@ proc main() =
 
   var jobs = getDefinedJobs(config)
   if action notin offlineActions:
+    if findExe("nomad").len == 0:
+      raise newException(NmgrError, "'nomad' executable not found")
+
     let running = nomad.runningJobNames()
     for job in jobs.mitems:
       job.isRunning = job.name in running
