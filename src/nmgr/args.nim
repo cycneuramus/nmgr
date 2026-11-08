@@ -90,7 +90,7 @@ proc handleShortCircuit*(e: ref ShortCircuit) =
   of "list_options":
     echo listOpts(e.help).join("\n")
   of "list_running":
-    for job in NomadClient(config: parseConfig(defaultConfigPath)).runningJobNames():
+    for job in newNomadClient(parseConfig(defaultConfigPath)).runningJobNames():
       echo job
   else:
     raise e

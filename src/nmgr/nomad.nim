@@ -1,6 +1,6 @@
 import std/[algorithm, json, osproc, paths, strformat, strutils]
 import ./[config, errors, jobs, logging]
-import ./nomad/[api, hclparser, jsonparser]
+import ./nomad/[api, jsonparser]
 
 type
   Runner* = proc(cmd: seq[string], workingDir: string): int
@@ -40,21 +40,11 @@ proc run(self; cmd: seq[string], workingDir = ""): int =
   debug fmt"Executing: {cmdStr}"
   self.runCmd(cmd, workingDir)
 
-func extractImages*(spec: string): seq[string] =
-  let content = parseHcl(spec)
-  result = content.getImages()
-
-proc getSpecImage*(self; specPath: Path): seq[string] =
-  let spec = readSpec(specPath)
-  result = extractImages(spec).sorted()
-  if result.len == 0:
-    raise newException(NomadError, fmt"No spec images found in {$specPath}")
-
 proc getJson(self; path: string): JsonNode =
   self.api.get(path).parseResponse()
 
 proc getLiveImage*(self; jobName: string): seq[string] =
-  result = self.getJson("/v1/job" & jobName).images.sorted()
+  result = self.getJson("/v1/job/" & jobName).images.sorted()
   if result.len == 0:
     raise newException(NomadError, fmt"No live images found for {jobName}")
 

@@ -1,6 +1,4 @@
-## Represents and operates on Nomad jobs
-
-import std/[dirs, files, options, paths, strformat, strutils]
+import std/[algorithm, dirs, files, options, paths, strformat, strutils]
 import ./[config, errors, logging]
 import ./nomad/hclparser
 
@@ -16,6 +14,11 @@ proc readSpec*(specPath: Path): string =
     result = readFile($specPath)
   except CatchableError as e:
     raise newException(JobError, fmt"Unable to read spec file {$specPath}: {e.msg}")
+
+proc getSpecImages*(job: NomadJob): seq[string] =
+  result = readSpec(job.specPath).parseHcl().getImages().sorted()
+  if result.len == 0:
+    raise newException(NomadError, fmt"No spec images found in {$job.specPath}")
 
 proc getJobName(specPath: Path): string =
   let spec = readSpec(specPath)

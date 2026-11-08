@@ -70,7 +70,7 @@ proc image(jobs, nomad): void =
         continue
     let spec =
       try:
-        nomad.getSpecImage(job.specPath).join("\n")
+        job.getSpecImages().join("\n")
       except NomadError as e:
         debug e.msg
         continue
@@ -120,7 +120,7 @@ proc reconcile(jobs, nomad): void =
         continue
     let specImage =
       try:
-        nomad.getSpecImage(job.specPath)
+        job.getSpecImages()
       except NomadError as e:
         debug e.msg
         continue
