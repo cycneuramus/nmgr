@@ -1,17 +1,25 @@
 import std/[httpclient, strformat, strutils, uri]
 import ../[errors, logging]
 
-type NomadApi* = object
-  server*: string
-  caller*: proc(httpMethod: string, endpoint: string): string
-  http*: HttpClient
+type
+  Transport* = proc(verb: HttpMethod, url: string): string
+  NomadApi* = object
+    server*: string
+    send*: Transport
 
 using self: NomadApi
 
-proc newHttp*(): HttpClient =
-  var client = newHttpClient(timeout = 5000)
-  client.headers.add("Content-Type", "application/json")
-  return client
+proc httpTransport*(): Transport =
+  let client = newHttpClient(timeout = 5000)
+  client.headers["Content-Type"] = "application/json"
+  result = proc(verb: HttpMethod, url: string): string =
+    let response = client.request(url, httpMethod = verb)
+    debug fmt"Response status: {response.status}"
+    if not response.code.is2xx:
+      raise newException(
+        NomadError, fmt"{verb} {url} failed: {response.status} {response.body}"
+      )
+    response.body
 
 func buildUrl(
     server: string, path: string, query: seq[(string, string)] = @[]
@@ -26,24 +34,8 @@ func buildUrl(
     uri.query = encodeQuery(query)
   return $uri
 
-proc call*(
-    self; verb: HttpMethod, path: string, query: seq[(string, string)] = @[]
-): string =
-  let endpoint = buildUrl(self.server, path, query)
-  if not self.caller.isNil:
-    return self.caller($verb, endpoint)
-
-  let response = self.http.request(endpoint, httpMethod = verb)
-  debug fmt"Response status: {response.status}"
-  if not response.code.is2xx:
-    raise newException(
-      NomadError, fmt"{verb} {endpoint} failed: {response.status} {response.body}"
-    )
-
-  return response.body
-
 proc get*(self; path: string, query: seq[(string, string)] = @[]): string =
-  return self.call(HttpGet, path, query)
+  return self.send(HttpGet, buildUrl(self.server, path, query))
 
 proc delete*(self; path: string, query: seq[(string, string)] = @[]): string =
-  return self.call(HttpDelete, path, query)
+  return self.send(HttpDelete, buildUrl(self.server, path, query))

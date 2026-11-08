@@ -1,4 +1,4 @@
-import std/[os, osproc, paths, strformat, strutils]
+import std/[os, paths, strformat, strutils]
 import ./[config, errors, jobs, logging, nomad]
 
 type Action* = enum
@@ -144,11 +144,7 @@ proc edit(job: NomadJob, nomad): void =
     error fmt"Invalid $EDITOR: {editor}"
     return
 
-  let process =
-    startProcess(editor, args = [$spec], options = {poParentStreams, poUsePath})
-  defer:
-    process.close()
-  discard waitForExit(process)
+  discard runProcess(@[editor, $spec])
 
 proc perform*(action: Action, jobs; nomad): void =
   case action

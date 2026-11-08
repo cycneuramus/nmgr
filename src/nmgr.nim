@@ -1,6 +1,5 @@
 import std/[os, sequtils, streams, strformat]
 import ./nmgr/[action, args, config, errors, jobs, logging, nomad, target]
-import ./nmgr/nomad/[api, cli]
 import pkg/argparse
 
 proc main() =
@@ -29,14 +28,7 @@ proc main() =
         parseEnum[Action](args.action)
       except ValueError:
         raise newException(NmgrError, fmt"Unknown action: '{args.action}'")
-    nomad = NomadClient(
-      config: config,
-      dryRun: args.dry_run,
-      detach: args.detach,
-      purge: args.purge,
-      api: NomadApi(server: config.server, http: newHttp()),
-      cli: NomadCli(),
-    )
+    nomad = newNomadClient(config, args.dry_run, args.detach, args.purge)
 
   var jobs = getDefinedJobs(config)
   if action notin offlineActions:
