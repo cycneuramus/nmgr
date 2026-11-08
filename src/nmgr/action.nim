@@ -138,13 +138,12 @@ proc edit(job: NomadJob, nomad): void =
     editor = getEnv("EDITOR")
 
   if editor.len == 0:
-    error "'$EDITOR environment variable not set"
-    return
+    raise newException(NmgrError, "'$EDITOR environment variable not set")
   if editor.splitWhitespace().len > 1:
-    error fmt"Invalid $EDITOR: {editor}"
-    return
+    raise newException(NmgrError, fmt"Invalid $EDITOR: {editor}")
 
-  discard runProcess(@[editor, $spec])
+  let cmd = parseCmdLine(editor) & $spec
+  discard runProcess(cmd)
 
 proc perform*(action: Action, jobs; nomad): void =
   case action
