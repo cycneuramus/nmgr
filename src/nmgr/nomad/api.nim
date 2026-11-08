@@ -40,6 +40,8 @@ proc call*(
       NomadError, fmt"{verb} {endpoint} failed: {response.status} {response.body}"
     )
 
+  return response.body
+
 proc get*(self; path: string, query: seq[(string, string)] = @[]): string =
   return self.call(HttpGet, path, query)
 
