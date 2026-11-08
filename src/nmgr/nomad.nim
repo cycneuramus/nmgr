@@ -38,7 +38,8 @@ proc run(self; cmd: seq[string], workingDir = ""): int =
     info fmt"[DRY RUN] {cmdStr}"
     return 0
   debug fmt"Executing: {cmdStr}"
-  self.runCmd(cmd, workingDir)
+  if self.runCmd(cmd, workingDir) != 0:
+    raise newException(NomadError, fmt"Execution failed: {cmdStr}")
 
 proc getJson(self; path: string): JsonNode =
   self.api.get(path).parseResponse()
