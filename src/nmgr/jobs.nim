@@ -8,6 +8,7 @@ type NomadJob* = object
   name*: string
   specPath*: Path
   isRunning*: bool
+  isInfra*: bool
 
 proc readSpec*(specPath: Path): string =
   try:
@@ -64,4 +65,6 @@ proc getDefinedJobs*(config: Config): seq[NomadJob] =
       if name == "":
         warn fmt"Could not extract job name from {path.string}"
 
-      result.add(NomadJob(name: name, specPath: path))
+      result.add(
+        NomadJob(name: name, specPath: path, isInfra: name in config.infraJobs)
+      )

@@ -28,7 +28,7 @@ proc main() =
         parseEnum[Action](args.action)
       except ValueError:
         raise newException(NmgrError, fmt"Unknown action: '{args.action}'")
-    nomad = newNomadClient(config, args.dry_run, args.detach, args.purge)
+    nomad = newNomadClient(config.server, args.dry_run, args.detach, args.purge)
 
   var jobs = getDefinedJobs(config)
   if action notin offlineActions:

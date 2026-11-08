@@ -15,11 +15,11 @@ func infra(jobs, config): seq[NomadJob] =
     result.add(jobs.filterIt(it.name == name))
 
 func services(jobs, config): seq[NomadJob] =
-  jobs.filterIt(it.name notin config.infraJobs).sortedByIt(it.name)
+  jobs.filterIt(it.isInfra == false).sortedByIt(it.name)
 
 proc matching*(jobs; filter: Filter, config): seq[NomadJob] =
   for job in jobs:
-    if filter.excludeInfra and job.name in config.infraJobs:
+    if filter.excludeInfra and job.isInfra:
       continue
 
     var paths = @[job.specPath]

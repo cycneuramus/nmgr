@@ -1,5 +1,5 @@
 import std/[os, paths, strformat, strutils]
-import ./[config, errors, jobs, logging, nomad]
+import ./[errors, jobs, logging, nomad]
 
 type Action* = enum
   acUp = "up"
@@ -108,7 +108,7 @@ proc reconcile(jobs, nomad): void =
       debug fmt"Job {job.name} is not running; skipping"
       continue
 
-    if job.name in nomad.config.infraJobs:
+    if job.isInfra:
       info fmt"Skipping infra job: {job.name}"
       continue
 

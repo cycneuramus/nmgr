@@ -1,11 +1,10 @@
 import std/[algorithm, json, osproc, paths, strformat, strutils]
-import ./[config, errors, jobs, logging]
+import ./[errors, jobs, logging]
 import ./nomad/[api, jsonparser]
 
 type
   Runner* = proc(cmd: seq[string], workingDir: string): int
   NomadClient* = object
-    config*: Config
     dryRun*, detach*, purge*: bool
     api*: NomadApi
     runCmd*: Runner
@@ -19,14 +18,13 @@ proc runProcess*(cmd: seq[string], workingDir = ""): int =
   process.waitForExit()
 
 proc newNomadClient*(
-    config: Config, dryRun = false, detach = false, purge = false
+    server: string, dryRun = false, detach = false, purge = false
 ): NomadClient =
   NomadClient(
-    config: config,
     dryRun: dryRun,
     detach: detach,
     purge: purge,
-    api: NomadApi(server: config.server, send: httpTransport()),
+    api: NomadApi(server: server, send: httpTransport()),
     runCmd: runProcess,
   )
 
@@ -65,7 +63,7 @@ proc runningJobNames*(self): seq[string] =
 
 proc runJob*(self; job: NomadJob): void =
   var cmd = @["nomad", "run"]
-  if self.detach and job.name notin self.config.infraJobs:
+  if self.detach and not job.isInfra:
     cmd.add("-detach")
   cmd.add($job.specPath)
 
