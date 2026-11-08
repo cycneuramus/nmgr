@@ -1,77 +1,61 @@
-import std/[algorithm, paths, sequtils, strformat, tables, with]
-import ./[config, errors, jobs, logging, registry]
+import std/[algorithm, paths, sequtils, strformat, tables]
+import ./[config, errors, jobs, logging]
 
-type TargetFilter* = proc(jobs: seq[NomadJob], config: Config): seq[NomadJob]
+# An enum here might be tempting to avoid writing the builtins again
+# in select(), but would actually be worse since all other potential
+# targets are strings and thus would need separate handling anyway.
+const builtinTargets* = ["infra", "services", "all"]
 
 using
   jobs: seq[NomadJob]
   config: Config
-  target: string
-  registry: Registry[TargetFilter]
 
-func infraFilter(jobs, config): seq[NomadJob] =
-  ## Filters on infrastructure jobs, ordering them as in config
-  for infraJobName in config.infraJobs:
-    result.add(jobs.filterIt(it.name == infraJobName))
+func infra(jobs, config): seq[NomadJob] =
+  for name in config.infraJobs:
+    result.add(jobs.filterIt(it.name == name))
 
-func servicesFilter(jobs, config): seq[NomadJob] =
-  ## Filters on service (non-infra) jobs, ordering them alphabetically
-  result = jobs.filterIt(it.name notin config.infraJobs).sortedByIt(it.name)
+func services(jobs, config): seq[NomadJob] =
+  jobs.filterIt(it.name notin config.infraJobs).sortedByIt(it.name)
 
-func allFilter(jobs, config): seq[NomadJob] =
-  ## Filters on all (both infra and service) jobs, ordering infra jobs first
-  result = jobs.infraFilter(config) & jobs.servicesFilter(config)
+proc matching*(jobs; filter: Filter, config): seq[NomadJob] =
+  for job in jobs:
+    if filter.excludeInfra and job.name in config.infraJobs:
+      continue
 
-func configFilter*(target): TargetFilter =
-  ## Filters on jobs matching config-defined patterns
-  # NOTE: configFilter is a special case needing a filter name param, whence the closure
-  return proc(jobs, config): seq[NomadJob] =
-    # HACK: On-the-fly filter fallback for 'find' action
-    let filter = config.filters.getOrDefault(target, Filter(pattern: target))
+    var paths = @[job.specPath]
+    if filter.extendedSearch:
+      let configs = findConfigs(job.specPath.parentDir, config.jobConfigPatterns)
+      paths.add(configs)
 
-    for job in jobs:
-      if filter.excludeInfra and job.name in config.infraJobs:
-        continue
+    if job.matchesFilter(filter, paths):
+      result.add(job)
 
-      var paths = @[job.specPath]
-      if filter.extendedSearch:
-        let configs = findConfigs(job.specPath.parentDir, config.jobConfigPatterns)
-        paths.add(configs)
+  result = result.sortedByIt(it.name)
 
-      if job.matchesFilter(filter, paths):
-        result.add(job)
+proc select(jobs; target: string, config): seq[NomadJob] =
+  case target
+  of "infra":
+    jobs.infra(config)
+  of "services":
+    jobs.services(config)
+  of "all":
+    jobs.infra(config) & jobs.services(config)
+  elif target in config.filters:
+    debug fmt"Using config filter: {target}"
+    jobs.matching(config.filters[target], config)
+  else:
+    jobs.filterIt(it.name == target)
 
-    result = result.sortedByIt(it.name)
+proc resolve*(targets: seq[string], jobs; config; adHoc = false): seq[NomadJob] =
+  for target in targets:
+    let matched =
+      if adHoc:
+        jobs.matching(Filter(pattern: target), config)
+      else:
+        jobs.select(target, config)
 
-func nameFilter(target): TargetFilter =
-  ## Filters on jobs matching the target job name
-  # NOTE: nameFilter is a special case needing a target param, whence the closure
-  return proc(jobs, config): seq[NomadJob] =
-    result = jobs.filterIt(it.name == target)
+    if matched.len == 0 and not adHoc:
+      raise newException(TargetError, fmt"'{target}' not found")
+    result.add(matched)
 
-func initTargetRegistry*(): Registry[TargetFilter] =
-  var registry = TargetFilter.initRegistry
-  with registry:
-    add("infra", infraFilter)
-    add("services", servicesFilter)
-    add("all", allFilter)
-  return registry
-
-proc filter*(target, jobs, registry, config): seq[NomadJob] =
-  debug fmt"Filtering jobs on target: {target}"
-  let targetFilter =
-    if registry.hasKey(target):
-      debug fmt"Using registry filter: {target}"
-      registry[target]
-    elif target in config.filters:
-      debug fmt"Using config filter: {target}"
-      configFilter(target)
-    else:
-      debug fmt"Using name filter: {target}"
-      nameFilter(target)
-
-  result = targetFilter(jobs, config)
-  debug fmt"Target filter result: {result.len} jobs matched"
-
-  if result.len == 0:
-    raise newException(TargetError, fmt"'{target}' not found")
+  result = result.deduplicate()

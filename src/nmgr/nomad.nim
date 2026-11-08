@@ -1,4 +1,4 @@
-import std/[algorithm, paths, sequtils, strformat]
+import std/[algorithm, paths, strformat]
 import ./[config, errors, jobs, logging]
 import ./nomad/[api, cli, hclparser, jsonparser]
 
@@ -40,13 +40,10 @@ proc getAllocId*(self; jobName: string): string =
   if result.len == 0:
     raise newException(NomadError, fmt"No allocation found for {jobName}")
 
-proc getRunningJobs*(self): seq[NomadJob] =
-  let
-    response = self.api.get("/v1/jobs").parseResponse()
-    jobs = response.parseJobs()
-  for job in jobs:
-    result.add(NomadJob(name: job, isRunning: true))
-  debug fmt"Running jobs from API: {result.mapIt(it.name)}"
+proc runningJobNames*(self): seq[string] =
+  let response = self.api.get("/v1/jobs").parseResponse()
+  result = response.parseJobs()
+  debug fmt"Running jobs from API: {result}"
 
 proc runJob*(self; job: NomadJob): void =
   var cmd = @["nomad", "run"]

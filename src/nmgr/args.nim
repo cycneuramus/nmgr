@@ -68,7 +68,7 @@ template parseArgs*(): untyped =
       genCompletion()
       quit(0)
     if e.flag == "list_actions":
-      for a in actionRegistry.keys:
+      for a in Action:
         echo a
       quit(0)
     if e.flag == "list_targets":
@@ -78,7 +78,7 @@ template parseArgs*(): untyped =
         except ConfigError as ce:
           fatal ce.msg
           quit(1)
-      for t in targetRegistry.keys:
+      for t in builtinTargets:
         echo t
       for f in config.filters.keys:
         echo f
@@ -96,8 +96,8 @@ template parseArgs*(): untyped =
       let nomad = NomadClient(
         config: config, api: NomadApi(server: config.server, http: newHttp())
       )
-      for job in nomad.getRunningJobs():
-        echo job.name
+      for job in nomad.runningJobNames():
+        echo job
       quit(0)
     else:
       raise

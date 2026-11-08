@@ -9,8 +9,6 @@ proc main() =
         "", "version"
       )
     defaultConfig = staticRead("../data/config")
-    targetRegistry = initTargetRegistry()
-    actionRegistry = initActionRegistry()
 
   let defaultConfigPath =
     getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
@@ -47,13 +45,9 @@ proc main() =
 
   let action =
     try:
-      actionRegistry[args.action]
-    except KeyError:
-      fatal fmt"Unknown action: '{args.action}'"
-      quit(1)
-  debug fmt" Action '{args.action}' found: isSingleJob: {action.isSingleJob}"
-
-  let targets = args.targets
+      parseEnum[Action](args.action)
+    except ValueError:
+      raise newException(ActionError, fmt"Unknown action: '{args.action}'")
 
   let nomad = NomadClient(
     config: parsedConfig,
@@ -64,60 +58,20 @@ proc main() =
     cli: NomadCli(),
   )
 
-  # TODO: Not needed for e.g. edit, find, list actions
-  let runningJobs =
-    try:
-      getRunningJobs(nomad)
-    except CatchableError as e:
-      fatal fmt"Error fetching running jobs: {e.msg}"
-      quit(1)
+  var jobs = getDefinedJobs(parsedConfig)
+  if action notin offlineActions:
+    let running = nomad.runningJobNames()
+    for job in jobs.mitems:
+      job.isRunning = job.name in running
 
-  var definedJobs =
-    try:
-      getDefinedJobs(parsedConfig)
-    except CatchableError as e:
-      fatal fmt"Error getting defined jobs: {e.msg}"
-      quit(1)
+  let targeted = args.targets.resolve(jobs, parsedConfig, adHoc = action == acFind)
+  if targeted.len == 0:
+    raise newException(TargetError, "No jobs targeted")
+  if action in singleJobActions and targeted.len > 1:
+    raise
+      newException(ActionError, fmt "The '{action}' action only supports a single job")
 
-  for job in definedJobs.mitems:
-    job.isRunning = runningJobs.anyIt(it.name == job.name)
-
-  var
-    targetedJobs: seq[NomadJob]
-    seenJobs: seq[string]
-
-  for target in targets:
-    let filteredJobs =
-      # NOTE: 'find' action is treated as an on-the-fly config filter for now
-      if args.action == "find":
-        configFilter(target)(definedJobs, parsedConfig)
-      else:
-        try:
-          target.filter(definedJobs, targetRegistry, parsedConfig)
-        except CatchableError as e:
-          fatal fmt"Error filtering on target: {e.msg}"
-          quit(1)
-
-    # Deduplicate target args
-    for job in filteredJobs:
-      if job.name notin seenJobs:
-        seenJobs.add(job.name)
-        targetedJobs.add(job)
-
-  debug fmt"Targeting jobs: {targetedJobs.mapIt(it.name)}"
-
-  if targetedJobs.len == 0:
-    fatal "No jobs targeted"
-    quit(1)
-  if action.isSingleJob and targetedJobs.len > 1:
-    fatal fmt"The '{args.action}' action only supports a single job"
-    quit(1)
-
-  try:
-    action.handle(targetedJobs, nomad)
-  except ActionError as e:
-    fatal fmt"Error handling action: {e.msg}"
-    quit(1)
+  action.perform(targeted, nomad)
 
 when isMainModule:
   main()

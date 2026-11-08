@@ -1,9 +1,21 @@
-import std/[os, osproc, paths, strformat, strutils, with]
-import ./[config, errors, jobs, logging, nomad, registry]
+import std/[os, osproc, paths, strformat, strutils]
+import ./[config, errors, jobs, logging, nomad]
 
-type Action* = object
-  handler*: proc(jobs: seq[NomadJob], nomad: NomadClient): void
-  isSingleJob*: bool = false
+type Action* = enum
+  acUp = "up"
+  acDown = "down"
+  acFind = "find"
+  acList = "list"
+  acImage = "image"
+  acLogs = "logs"
+  acExec = "exec"
+  acShell = "shell"
+  acReconcile = "reconcile"
+  acEdit = "edit"
+
+const
+  singleJobActions* = {acLogs, acExec, acShell, acEdit}
+  offlineActions* = {acFind, acList, acEdit}
 
 using
   jobs: seq[NomadJob]
@@ -11,9 +23,6 @@ using
 
 proc selectTask(nomad; job: NomadJob): string =
   let tasks = nomad.getTasks(job.name)
-  if tasks.len < 1:
-    error fmt"No tasks found for job {job.name}"
-    return
   if tasks.len == 1:
     return tasks[0]
 
@@ -33,7 +42,7 @@ proc selectTask(nomad; job: NomadJob): string =
     except CatchableError:
       echo "Please enter a valid number."
 
-proc upHandler(jobs, nomad): void =
+proc up(jobs, nomad): void =
   for job in jobs:
     if job.isRunning:
       debug fmt"Job {job.name} is already running"
@@ -42,7 +51,7 @@ proc upHandler(jobs, nomad): void =
     debug fmt"Bringing job UP: {job.name}"
     nomad.runJob(job)
 
-proc downHandler(jobs, nomad): void =
+proc down(jobs, nomad): void =
   for job in jobs:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
@@ -51,15 +60,7 @@ proc downHandler(jobs, nomad): void =
     debug fmt"Bringing job DOWN: {job.name}"
     nomad.stopJob(job.name)
 
-proc findHandler(jobs, nomad): void =
-  for job in jobs:
-    echo job.name
-
-proc listHandler(jobs, nomad): void =
-  for job in jobs:
-    echo job.name
-
-proc imageHandler(jobs, nomad): void =
+proc image(jobs, nomad): void =
   for job in jobs:
     let live =
       try:
@@ -81,34 +82,19 @@ proc imageHandler(jobs, nomad): void =
 
     echo &"Live images:\n{live}\n\nSpec images:\n{spec}{separator}"
 
-proc logsHandler(jobs, nomad): void =
-  let
-    job = jobs[0]
-    task = nomad.selectTask(job)
-  if task.len < 1:
-    return
-
+proc logs(job: NomadJob, nomad): void =
+  let task = nomad.selectTask(job)
   nomad.tailLogs(taskName = task, jobName = job.name)
 
-proc execHandler(jobs, nomad): void =
-  let
-    job = jobs[0]
-    task = nomad.selectTask(job)
-  if task.len < 1:
-    return
-
+proc exec(job: NomadJob, nomad): void =
+  let task = nomad.selectTask(job)
   stdout.write fmt"Command to execute in {task}: "
   let subCmd = readLine(stdin)
   discard
     nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.parseCmdLine())
 
-proc shellHandler(jobs, nomad): void =
-  let
-    job = jobs[0]
-    task = nomad.selectTask(job)
-  if task.len < 1:
-    return
-
+proc shell(job: NomadJob, nomad): void =
+  let task = nomad.selectTask(job)
   for shell in @["bash", "sh"]:
     debug fmt"Trying shell '{shell}' in {job.name}"
     if nomad.exec(taskName = task, jobName = job.name, subCmd = @[shell]) == 0:
@@ -116,7 +102,7 @@ proc shellHandler(jobs, nomad): void =
 
   error fmt"No shell found in {job.name} container"
 
-proc reconcileHandler(jobs, nomad): void =
+proc reconcile(jobs, nomad): void =
   for job in jobs:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
@@ -146,12 +132,11 @@ proc reconcileHandler(jobs, nomad): void =
     info fmt"Reconciling job {job.name}: image changed. Restarting..."
     nomad.runJob(job)
 
-proc editHandler(jobs, nomad): void =
+proc edit(job: NomadJob, nomad): void =
   let
-    job = jobs[0]
     spec = job.specPath
+    editor = getEnv("EDITOR")
 
-  let editor = getEnv("EDITOR")
   if editor.len == 0:
     error "'$EDITOR environment variable not set"
     return
@@ -165,24 +150,24 @@ proc editHandler(jobs, nomad): void =
     process.close()
   discard waitForExit(process)
 
-func initActionRegistry*(): Registry[Action] =
-  var registry = Action.initRegistry
-  with registry:
-    add("up", Action(handler: upHandler))
-    add("down", Action(handler: downHandler))
-    add("find", Action(handler: findHandler))
-    add("list", Action(handler: listHandler))
-    add("image", Action(handler: imageHandler))
-    add("logs", Action(handler: logsHandler, isSingleJob: true))
-    add("exec", Action(handler: execHandler, isSingleJob: true))
-    add("shell", Action(handler: shellHandler, isSingleJob: true))
-    add("reconcile", Action(handler: reconcileHandler))
-    add("edit", Action(handler: editHandler, isSingleJob: true))
-  return registry
-
-proc handle*(action: Action, jobs: seq[NomadJob], nomad: NomadClient): void =
-  let handle = action.handler
-  try:
-    jobs.handle(nomad)
-  except CatchableError as e:
-    raise newException(ActionError, e.msg)
+proc perform*(action: Action, jobs; nomad): void =
+  case action
+  of acUp:
+    up(jobs, nomad)
+  of acDown:
+    down(jobs, nomad)
+  of acFind, acList:
+    for job in jobs:
+      echo job.name
+  of acImage:
+    image(jobs, nomad)
+  of acReconcile:
+    reconcile(jobs, nomad)
+  of acLogs:
+    logs(jobs[0], nomad)
+  of acExec:
+    exec(jobs[0], nomad)
+  of acShell:
+    shell(jobs[0], nomad)
+  of acEdit:
+    edit(jobs[0], nomad)
