@@ -42,7 +42,7 @@ proc run(self; cmd: seq[string], workingDir = ""): int =
 proc getJson(self; path: string): JsonNode =
   self.api.get(path).parseResponse()
 
-proc getLiveImage*(self; jobName: string): seq[string] =
+proc getLiveImages*(self; jobName: string): seq[string] =
   result = self.getJson("/v1/job/" & jobName).images.sorted()
   if result.len == 0:
     raise newException(NomadError, fmt"No live images found for {jobName}")

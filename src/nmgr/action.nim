@@ -64,7 +64,7 @@ proc image(jobs, nomad): void =
   for job in jobs:
     let live =
       try:
-        nomad.getLiveImage(job.name).join("\n")
+        nomad.getLiveImages(job.name).join("\n")
       except NomadError as e:
         debug e.msg
         continue
@@ -112,20 +112,14 @@ proc reconcile(jobs, nomad): void =
       info fmt"Skipping infra job: {job.name}"
       continue
 
-    let liveImage =
-      try:
-        nomad.getLiveImage(job.name)
-      except NomadError as e:
-        debug e.msg
-        continue
-    let specImage =
-      try:
-        job.getSpecImages()
-      except NomadError as e:
-        debug e.msg
-        continue
+    let
+      live = nomad.getLiveImages(job.name)
+      spec = job.getSpecImages()
+    if live.len == 0 or spec.len == 0:
+      debug fmt"{job.name}: No images (live={live.len}, spec={spec.len}); skipping"
+      continue
 
-    if liveImage == specImage:
+    if live == spec:
       debug fmt"No changes for {job.name}; skipping"
       continue
 
