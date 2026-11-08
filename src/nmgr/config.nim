@@ -16,7 +16,7 @@ type
     filters*: Table[string, Filter]
     server*: string
 
-proc parse*(configPath: string): Config =
+proc parseConfig*(configPath: string): Config =
   var config: Config
   debug fmt"Loading config from: {configPath}"
 

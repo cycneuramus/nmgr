@@ -1,6 +1,6 @@
 type
-  ConfigError* = object of CatchableError
-  JobError* = object of CatchableError
-  NomadError* = object of CatchableError
-  ActionError* = object of CatchableError
-  TargetError* = object of CatchableError
+  NmgrError* = object of CatchableError
+  ConfigError* = object of NmgrError
+  JobError* = object of NmgrError
+  NomadError* = object of NmgrError
+  TargetError* = object of NmgrError

@@ -1,4 +1,21 @@
+import std/[parsecfg, strformat, strutils, tables]
+import ./[action, completion, config, nomad, target]
 import pkg/argparse
+
+const
+  version = staticRead("../../nmgr.nimble").newStringStream.loadConfig.getSectionValue(
+      "", "version"
+    )
+  defaultConfig = staticRead("../../data/config")
+
+let defaultConfigPath* =
+  getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+
+proc ensureDefaultConfig*() =
+  if not fileExists(defaultConfigPath):
+    createDir(defaultConfigPath.parentDir)
+    writeFile($defaultConfigPath, defaultConfig)
+    echo fmt"Generated default config at {defaultConfigPath}"
 
 # HACK: parse help text for --list-options
 func listOpts*(help: string): seq[string] =
@@ -54,50 +71,27 @@ template buildParser*(): untyped =
     arg("action", help = "Action to perform")
     arg("targets", help = "Targets to operate on", nargs = -1)
 
-template parseArgs*(): untyped =
-  try:
-    parser.parse()
-  except ShortCircuit as e:
-    if e.flag == "argparse_help":
-      echo e.help
-      quit(0)
-    if e.flag == "version":
-      echo version
-      quit(0)
-    if e.flag == "completion":
-      genCompletion()
-      quit(0)
-    if e.flag == "list_actions":
-      for a in Action:
-        echo a
-      quit(0)
-    if e.flag == "list_targets":
-      let config =
-        try:
-          parse(defaultConfigPath)
-        except ConfigError as ce:
-          fatal ce.msg
-          quit(1)
-      for t in builtinTargets:
-        echo t
-      for f in config.filters.keys:
-        echo f
-      quit(0)
-    if e.flag == "list_options":
-      echo listOpts(parser.help).join("\n")
-      quit(0)
-    if e.flag == "list_running":
-      let config =
-        try:
-          parse(defaultConfigPath)
-        except ConfigError as ce:
-          fatal ce.msg
-          quit(1)
-      let nomad = NomadClient(
-        config: config, api: NomadApi(server: config.server, http: newHttp())
-      )
-      for job in nomad.runningJobNames():
-        echo job
-      quit(0)
-    else:
-      raise
+proc handleShortCircuit*(e: ref ShortCircuit) =
+  case e.flag
+  of "argparse_help":
+    echo e.help
+  of "version":
+    echo version
+  of "completion":
+    genCompletion()
+  of "list_actions":
+    for a in Action:
+      echo a
+  of "list_targets":
+    for t in builtinTargets:
+      echo t
+    for f in parseConfig(defaultConfigPath).filters.keys:
+      echo f
+  of "list_options":
+    echo listOpts(e.help).join("\n")
+  of "list_running":
+    for job in NomadClient(config: parseConfig(defaultConfigPath)).runningJobNames():
+      echo job
+  else:
+    raise e
+  quit(0)
