@@ -22,7 +22,7 @@ using
   nomad: NomadClient
 
 proc selectTask(nomad; job: NomadJob): string =
-  let tasks = nomad.getTasks(job.name)
+  let tasks = nomad.tasks(job.name)
   if tasks.len == 1:
     return tasks[0]
 
@@ -65,8 +65,8 @@ proc image(jobs, nomad) =
       debug fmt"Job {job.name} is not running; skipping"
       continue
     let
-      live = nomad.getLiveImages(job.name).join("\n")
-      spec = nomad.getSpecImages(job).join("\n")
+      live = nomad.liveImages(job.name).join("\n")
+      spec = nomad.specImages(job).join("\n")
 
     if live.len == 0 and spec.len == 0:
       info fmt"Job {job.name} has no container images"
@@ -107,7 +107,7 @@ proc reconcile(jobs, nomad) =
     if job.isInfra:
       info fmt"Skipping infra job: {job.name}"
       continue
-    if nomad.getLiveImages(job.name) == nomad.getSpecImages(job):
+    if nomad.liveImages(job.name) == nomad.specImages(job):
       debug fmt"No changes for {job.name}; skipping"
       continue
 

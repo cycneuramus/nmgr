@@ -32,7 +32,6 @@ proc parseConfig*(configPath: Path): Config =
     infraJobs = parser.getSectionValue("general", "infra_jobs", "").splitWhitespace
     jobConfigPatterns =
       parser.getSectionValue("general", "job_config_patterns", "").splitWhitespace
-    filters = initTable[string, Filter]()
     server = parser.getSectionValue("general", "nomad_url", "http://127.0.0.1:4646")
 
   for section in parser.sections:

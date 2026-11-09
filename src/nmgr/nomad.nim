@@ -52,30 +52,30 @@ proc run(self; cmd: seq[string], workingDir = Path("")): int =
   if self.runCmd(cmd, workingDir) != 0:
     raise newException(NomadError, fmt"Execution failed: {cmdStr}")
 
-proc getJson(self; path: string): JsonNode =
+proc fetchJson(self; path: string): JsonNode =
   self.api.get(path).parseNomadJson()
 
-proc getLiveImages*(self; jobName: string): seq[string] =
-  self.getJson("/v1/job/" & jobName).images.sorted()
+proc liveImages*(self; jobName: string): seq[string] =
+  self.fetchJson("/v1/job/" & jobName).images.sorted()
 
-proc getSpecImages*(self; job: NomadJob): seq[string] =
+proc specImages*(self; job: NomadJob): seq[string] =
   let output = self.captureCmd(
     @["nomad", "job", "run", "-output", $job.specPath], job.specPath.parentDir
   )
   output.parseNomadJson(){"Job"}.images.sorted()
 
-proc getTasks*(self; jobName: string): seq[string] =
-  result = self.getJson("/v1/job/" & jobName).taskNames()
+proc tasks*(self; jobName: string): seq[string] =
+  result = self.fetchJson("/v1/job/" & jobName).taskNames()
   if result.len == 0:
     raise newException(NomadError, fmt"No tasks found for {jobName}")
 
-proc getAllocId*(self; jobName: string): string =
-  result = self.getJson("/v1/job/" & jobName & "/allocations").runningAllocId()
+proc allocId*(self; jobName: string): string =
+  result = self.fetchJson("/v1/job/" & jobName & "/allocations").runningAllocId()
   if result.len == 0:
     raise newException(NomadError, fmt"No allocation found for {jobName}")
 
 proc runningJobNames*(self): seq[string] =
-  result = self.getJson("/v1/jobs").runningJobNames()
+  result = self.fetchJson("/v1/jobs").runningJobNames()
   debug fmt"Running jobs from API: {result}"
 
 proc runJob*(self; job: NomadJob) =
@@ -104,12 +104,12 @@ proc stopJob*(self; jobName: string) =
 
 proc tailLogs*(self; taskName: string, jobName: string) =
   let
-    allocId = self.getAllocId(jobName)
+    allocId = self.allocId(jobName)
     cmd = @["nomad", "logs", "-f", "-task", taskName, allocId]
   discard self.run(cmd)
 
 proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): int =
-  let allocId = self.getAllocId(jobName)
+  let allocId = self.allocId(jobName)
   var cmd = @["nomad", "alloc", "exec", "-task", taskName, allocId]
   cmd.add(subCmd)
   self.run(cmd)

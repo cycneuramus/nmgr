@@ -2,7 +2,7 @@ import std/[json, sequtils, strformat]
 import ../[errors, logging]
 
 proc parseNomadJson*(body: string): JsonNode =
-  debug fmt"Parsing JSON response"
+  debug "Parsing JSON response"
   try:
     parseJson(body)
   except JsonParsingError as e:

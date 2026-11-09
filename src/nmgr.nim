@@ -29,7 +29,7 @@ proc main() =
         raise newException(NmgrError, fmt"Unknown action: '{args.action}'")
     nomad = newNomadClient(config.server, args.dry_run, args.detach, args.purge)
 
-  var jobs = getDefinedJobs(config)
+  var jobs = definedJobs(config)
   if action notin offlineActions:
     if findExe("nomad").len == 0:
       raise newException(NmgrError, "'nomad' executable not found")

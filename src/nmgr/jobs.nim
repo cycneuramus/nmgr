@@ -39,24 +39,27 @@ proc matchesFilter*(job: NomadJob, filter: Filter, paths: seq[Path]): bool =
         debug fmt"{job.name}: File '{path.extractFilename}' matches pattern '{filter.pattern}'"
         return true
 
-proc getDefinedJobs*(config: Config): seq[NomadJob] =
+proc definedJobs*(config: Config): seq[NomadJob] =
   ## Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
     raise newException(JobError, fmt"Base directory not found: {config.baseDir}")
 
-  for (kind, path) in walkDir(config.baseDir):
-    if kind != pcDir or path.extractFilename in config.ignoreDirs:
-      debug fmt"getDefinedJobs: Ignoring path: {path}"
+  for (dirKind, dirPath) in walkDir(config.baseDir):
+    if dirKind != pcDir:
+      continue
+    if dirPath.extractFilename in config.ignoreDirs:
+      debug fmt"Ignoring directory: {dirPath}"
       continue
 
-    for (kind, path) in walkDir(path):
-      if kind != pcFile or path.splitFile.ext notin specExts:
+    for (fileKind, filePath) in walkDir(dirPath):
+      if fileKind != pcFile or filePath.splitFile.ext notin specExts:
         continue
 
-      let name = readSpec(path).parseJobName()
+      let name = readSpec(filePath).parseJobName()
       if name == "":
-        warn fmt"Could not extract job name from {path}"
+        warn fmt"Could not extract job name from {filePath}"
+        continue
 
       result.add(
-        NomadJob(name: name, specPath: path, isInfra: name in config.infraJobs)
+        NomadJob(name: name, specPath: filePath, isInfra: name in config.infraJobs)
       )
