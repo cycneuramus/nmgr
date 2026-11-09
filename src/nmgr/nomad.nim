@@ -29,18 +29,6 @@ proc captureProcess*(cmd: seq[string], workingDir = Path("")): string =
     let cmdStr = cmd.join(" ")
     raise newException(NomadError, fmt"{cmdStr} failed: {errOut}")
 
-proc newNomadClient*(
-    server: string, dryRun = false, detach = false, purge = false
-): NomadClient =
-  NomadClient(
-    dryRun: dryRun,
-    detach: detach,
-    purge: purge,
-    api: NomadApi(server: server, send: httpTransport()),
-    runCmd: runProcess,
-    captureCmd: captureProcess,
-  )
-
 using self: NomadClient
 
 proc run(self; cmd: seq[string], workingDir = Path("")): int =

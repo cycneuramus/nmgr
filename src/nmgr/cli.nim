@@ -1,5 +1,6 @@
 import std/[algorithm, parsecfg, streams, strutils, tables]
 import ./[action, completion, config, nomad, target]
+import ./nomad/api
 import pkg/argparse
 
 const version = staticRead("../../nmgr.nimble").newStringStream.loadConfig
@@ -78,7 +79,10 @@ proc handleShortCircuit*(e: ref ShortCircuit) =
   of "list_options":
     echo listOpts(e.help).join("\n")
   of "list_running":
-    for job in newNomadClient(parseConfig(defaultConfigPath).server).runningJobNames():
+    for job in NomadClient(
+      api:
+        NomadApi(server: parseConfig(defaultConfigPath).server, send: httpTransport())
+    ).runningJobNames():
       echo job
   else:
     raise e
