@@ -63,7 +63,7 @@ proc getDefinedJobs*(config: Config): seq[NomadJob] =
 
       let name = getJobName(path)
       if name == "":
-        warn fmt"Could not extract job name from {path.string}"
+        warn fmt"Could not extract job name from {path}"
 
       result.add(
         NomadJob(name: name, specPath: path, isInfra: name in config.infraJobs)
