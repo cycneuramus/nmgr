@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.6](https://github.com/cycneuramus/nmgr/compare/v1.2.5...v1.2.6) (2026-11-09)
+
+
+### Bug Fixes
+
+* Broaden error catching on config load ([7e04db8](https://github.com/cycneuramus/nmgr/commit/7e04db80d24afe7680f6a3bf1552270d730d5d03))
+* Don't reject $EDITOR with arguments ([4095231](https://github.com/cycneuramus/nmgr/commit/40952313c9b171757169bc1f25bbea18c6556b29))
+* Return API response body ([ce4e29f](https://github.com/cycneuramus/nmgr/commit/ce4e29f85da197aeaade15e0322b7ac1b03dd999))
+
 ## [1.2.5](https://github.com/cycneuramus/nmgr/compare/v1.2.4...v1.2.5) (2026-11-07)
 
 
