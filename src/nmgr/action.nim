@@ -114,7 +114,7 @@ proc reconcile(jobs, nomad) =
     info fmt"Reconciling job {job.name}: image changed. Restarting..."
     nomad.runJob(job)
 
-proc edit(job: NomadJob, nomad) =
+proc edit(job: NomadJob) =
   let
     spec = job.specPath
     editor = getEnv("EDITOR")
@@ -145,4 +145,4 @@ proc perform*(action: Action, jobs; nomad) =
   of acShell:
     shell(jobs[0], nomad)
   of acEdit:
-    edit(jobs[0], nomad)
+    edit(jobs[0])
