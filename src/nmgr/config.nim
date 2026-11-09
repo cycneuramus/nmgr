@@ -32,7 +32,7 @@ proc parseConfig*(configPath: Path): Config =
   let parser =
     try:
       loadConfig($configPath)
-    except IOError as e:
+    except CatchableError as e:
       raise newException(ConfigError, fmt"Error parsing config: {e.msg}")
 
   with result:
