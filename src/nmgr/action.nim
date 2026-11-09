@@ -121,8 +121,6 @@ proc edit(job: NomadJob, nomad) =
 
   if editor.len == 0:
     raise newException(NmgrError, "'$EDITOR environment variable not set")
-  if editor.splitWhitespace().len > 1:
-    raise newException(NmgrError, fmt"Invalid $EDITOR: {editor}")
 
   let cmd = parseCmdLine(editor) & $spec
   discard runProcess(cmd)
