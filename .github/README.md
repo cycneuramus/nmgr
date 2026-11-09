@@ -28,11 +28,11 @@ Pre-built binaries for Linux (AMD64) are available on the [release page](https:/
 
 ```sh
 Usage:
-  nmgr [options] action target
+  nmgr [options] action [targets ...]
 
 Arguments:
   action           Action to perform
-  target           Target to operate on
+  [targets ...]    Targets to operate on
 
 Options:
   -h, --help
