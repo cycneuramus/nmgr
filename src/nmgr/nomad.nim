@@ -1,21 +1,33 @@
-import std/[algorithm, json, osproc, paths, strformat, strutils]
+import std/[algorithm, json, osproc, paths, streams, strformat, strutils]
 import ./[errors, jobs, logging]
 import ./nomad/[api, jsonparser]
 
 type
-  Runner* = proc(cmd: seq[string], workingDir: string): int
+  Runner* = proc(cmd: seq[string], workingDir: Path): int
+  Capturer* = proc(cmd: seq[string], workingDir: Path): string
   NomadClient* = object
     dryRun*, detach*, purge*: bool
     api*: NomadApi
     runCmd*: Runner
+    captureCmd*: Capturer
 
-proc runProcess*(cmd: seq[string], workingDir = ""): int =
+proc runProcess*(cmd: seq[string], workingDir = Path("")): int =
   let process = startProcess(
-    cmd[0], workingDir, cmd[1 ..^ 1], options = {poUsePath, poParentStreams}
+    cmd[0], $workingDir, cmd[1 ..^ 1], options = {poUsePath, poParentStreams}
   )
   defer:
     process.close()
   process.waitForExit()
+
+proc captureProcess*(cmd: seq[string], workingDir = Path("")): string =
+  let process = startProcess(cmd[0], $workingDir, cmd[1 ..^ 1], options = {poUsePath})
+  defer:
+    process.close()
+  result = process.outputStream.readAll()
+  let errOut = process.errorStream.readAll().strip()
+  if process.waitForExit() != 0:
+    let cmdStr = cmd.join(" ")
+    raise newException(NomadError, fmt"{cmdStr} failed: {errOut}")
 
 proc newNomadClient*(
     server: string, dryRun = false, detach = false, purge = false
@@ -26,11 +38,12 @@ proc newNomadClient*(
     purge: purge,
     api: NomadApi(server: server, send: httpTransport()),
     runCmd: runProcess,
+    captureCmd: captureProcess,
   )
 
 using self: NomadClient
 
-proc run(self; cmd: seq[string], workingDir = ""): int =
+proc run(self; cmd: seq[string], workingDir = Path("")): int =
   let cmdStr = cmd.join(" ")
   if self.dryRun:
     info fmt"[DRY RUN] {cmdStr}"
@@ -40,12 +53,16 @@ proc run(self; cmd: seq[string], workingDir = ""): int =
     raise newException(NomadError, fmt"Execution failed: {cmdStr}")
 
 proc getJson(self; path: string): JsonNode =
-  self.api.get(path).parseResponse()
+  self.api.get(path).parseNomadJson()
 
 proc getLiveImages*(self; jobName: string): seq[string] =
   result = self.getJson("/v1/job/" & jobName).images.sorted()
-  if result.len == 0:
-    raise newException(NomadError, fmt"No live images found for {jobName}")
+
+proc getSpecImages*(self; job: NomadJob): seq[string] =
+  let output = self.captureCmd(
+    @["nomad", "job", "run", "-output", $job.specPath], job.specPath.parentDir
+  )
+  output.parseNomadJson(){"Job"}.images.sorted()
 
 proc getTasks*(self; jobName: string): seq[string] =
   result = self.getJson("/v1/job/" & jobName).taskNames()
@@ -67,7 +84,7 @@ proc runJob*(self; job: NomadJob) =
     cmd.add("-detach")
   cmd.add($job.specPath)
 
-  discard self.run(cmd, workingDir = $job.specPath.parentDir)
+  discard self.run(cmd, workingDir = job.specPath.parentDir)
   if self.dryRun:
     return
 

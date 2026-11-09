@@ -1,7 +1,7 @@
-import std/[json, sequtils, strformat, strutils]
+import std/[json, sequtils, strformat]
 import ../[errors, logging]
 
-proc parseResponse*(body: string): JsonNode =
+proc parseNomadJson*(body: string): JsonNode =
   debug fmt"Parsing JSON response"
   try:
     result = parseJson(body)
@@ -19,7 +19,7 @@ func collectImages(node: JsonNode, images: var seq[string]) =
   case node.kind
   of JObject:
     let image = node{"image"}.getStr
-    if image.len > 0 and "local." notin image:
+    if image.len > 0:
       images.add(image)
     for _, value in node:
       collectImages(value, images)

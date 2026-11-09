@@ -1,6 +1,5 @@
-import std/[algorithm, dirs, files, options, paths, strformat, strutils]
+import std/[dirs, files, paths, strformat, strscans, strutils]
 import ./[config, errors, logging]
-import ./nomad/hclparser
 
 const specExts = [".hcl", ".nomad"]
 
@@ -16,15 +15,10 @@ proc readSpec*(specPath: Path): string =
   except CatchableError as e:
     raise newException(JobError, fmt"Unable to read spec file {$specPath}: {e.msg}")
 
-proc getSpecImages*(job: NomadJob): seq[string] =
-  result = readSpec(job.specPath).parseHcl().getImages().sorted()
-  if result.len == 0:
-    raise newException(NomadError, fmt"No spec images found in {$job.specPath}")
-
-proc getJobName(specPath: Path): string =
-  let spec = readSpec(specPath)
-  let content = parseHcl(spec)
-  result = content.getJobName.get("")
+func parseJobName(spec: string): string =
+  for line in spec.splitLines():
+    if line.strip().scanf("job$s\"$+\"", result):
+      return
 
 proc findConfigs*(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
   ## Finds configuration files in job directory
@@ -61,7 +55,7 @@ proc getDefinedJobs*(config: Config): seq[NomadJob] =
       if kind != pcFile or path.splitFile.ext notin specExts:
         continue
 
-      let name = getJobName(path)
+      let name = readSpec(path).parseJobName()
       if name == "":
         warn fmt"Could not extract job name from {path}"
 

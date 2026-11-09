@@ -62,18 +62,16 @@ proc down(jobs, nomad) =
 
 proc image(jobs, nomad) =
   for job in jobs:
-    let live =
-      try:
-        nomad.getLiveImages(job.name).join("\n")
-      except NomadError as e:
-        debug e.msg
-        continue
-    let spec =
-      try:
-        job.getSpecImages().join("\n")
-      except NomadError as e:
-        debug e.msg
-        continue
+    if not job.isRunning:
+      debug fmt"Job {job.name} is not running; skipping"
+      continue
+    let
+      live = nomad.getLiveImages(job.name).join("\n")
+      spec = nomad.getSpecImages(job).join("\n")
+
+    if live.len == 0 and spec.len == 0:
+      info fmt"Job {job.name} has no container images"
+      continue
 
     var separator = ""
     if jobs.len > 1:
@@ -107,19 +105,10 @@ proc reconcile(jobs, nomad) =
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
       continue
-
     if job.isInfra:
       info fmt"Skipping infra job: {job.name}"
       continue
-
-    let
-      live = nomad.getLiveImages(job.name)
-      spec = job.getSpecImages()
-    if live.len == 0 or spec.len == 0:
-      debug fmt"{job.name}: No images (live={live.len}, spec={spec.len}); skipping"
-      continue
-
-    if live == spec:
+    if nomad.getLiveImages(job.name) == nomad.getSpecImages(job):
       debug fmt"No changes for {job.name}; skipping"
       continue
 
