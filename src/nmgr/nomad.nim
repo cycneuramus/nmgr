@@ -56,7 +56,7 @@ proc getJson(self; path: string): JsonNode =
   self.api.get(path).parseNomadJson()
 
 proc getLiveImages*(self; jobName: string): seq[string] =
-  result = self.getJson("/v1/job/" & jobName).images.sorted()
+  self.getJson("/v1/job/" & jobName).images.sorted()
 
 proc getSpecImages*(self; job: NomadJob): seq[string] =
   let output = self.captureCmd(
@@ -112,4 +112,4 @@ proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): int =
   let allocId = self.getAllocId(jobName)
   var cmd = @["nomad", "alloc", "exec", "-task", taskName, allocId]
   cmd.add(subCmd)
-  result = self.run(cmd)
+  self.run(cmd)

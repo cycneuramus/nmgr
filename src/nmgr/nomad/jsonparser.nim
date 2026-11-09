@@ -4,7 +4,7 @@ import ../[errors, logging]
 proc parseNomadJson*(body: string): JsonNode =
   debug fmt"Parsing JSON response"
   try:
-    result = parseJson(body)
+    parseJson(body)
   except JsonParsingError as e:
     raise newException(NomadError, fmt"Failed to parse JSON response: {e.msg}")
 
@@ -32,7 +32,7 @@ func collectImages(node: JsonNode, images: var seq[string]) =
 func images*(job: JsonNode): seq[string] =
   for task in job.tasks:
     collectImages(task{"Config"}, result)
-  result = result.deduplicate()
+  result.deduplicate()
 
 func taskNames*(job: JsonNode): seq[string] =
   for task in job.tasks:

@@ -27,7 +27,7 @@ func listOpts*(help: string): seq[string] =
           # Remove anything after '=' (e.g. "--config=CONFIG")
           let clean = chunk.split('=')[0]
           result.add(clean)
-  result = result.sorted()
+  result.sort()
 
 template buildParser*(): untyped =
   newParser("nmgr"):

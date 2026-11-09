@@ -17,16 +17,14 @@ type
     server*: string
 
 proc parseConfig*(configPath: string): Config =
-  var config: Config
   debug fmt"Loading config from: {configPath}"
-
   let parser =
     try:
       loadConfig(configPath)
     except IOError as e:
       raise newException(ConfigError, fmt"Error parsing config: {e.msg}")
 
-  with config:
+  with result:
     baseDir = parser.getSectionValue("general", "base_dir", "").Path.expandTilde
     ignoreDirs = parser
       .getSectionValue("general", "ignore_dirs", "").splitWhitespace
@@ -41,12 +39,11 @@ proc parseConfig*(configPath: string): Config =
     if section.startsWith("filter."):
       let name = section.split(".")[1]
       let filter = parser[section]
-      config.filters[name] = Filter(
+      result.filters[name] = Filter(
         name: name,
         pattern: filter.getOrDefault("pattern", ""),
         extendedSearch: filter.getOrDefault("extended_search", "false").parseBool,
         excludeInfra: filter.getOrDefault("exclude_infra", "false").parseBool,
       )
 
-  debug fmt"Config loaded: baseDir={config.baseDir}, server={config.server}, filters={config.filters.keys().toSeq()}"
-  return config
+  debug fmt"Config loaded: baseDir={result.baseDir}, server={result.server}, filters={result.filters.keys().toSeq()}"

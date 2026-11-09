@@ -11,7 +11,7 @@ type NomadJob* = object
 
 proc readSpec*(specPath: Path): string =
   try:
-    result = readFile($specPath)
+    readFile($specPath)
   except CatchableError as e:
     raise newException(JobError, fmt"Unable to read spec file {$specPath}: {e.msg}")
 
@@ -38,8 +38,6 @@ proc matchesFilter*(job: NomadJob, filter: Filter, paths: seq[Path]): bool =
       if line.contains(filter.pattern):
         debug fmt"{job.name}: File '{$splitPath(path).tail}' matches pattern '{filter.pattern}'"
         return true
-
-  return false
 
 proc getDefinedJobs*(config: Config): seq[NomadJob] =
   ## Finds Nomad jobs by walking subdirectories of base dir

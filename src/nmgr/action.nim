@@ -37,8 +37,7 @@ proc selectTask(nomad; job: NomadJob): string =
       let choice = parseInt(inputLine)
       if choice in 1 .. tasks.len:
         return tasks[choice - 1]
-      else:
-        echo "Invalid choice. Please enter a valid number."
+      echo "Invalid choice. Please enter a valid number."
     except CatchableError:
       echo "Please enter a valid number."
 

@@ -12,7 +12,7 @@ using self: NomadApi
 proc httpTransport*(): Transport =
   let client = newHttpClient(timeout = 5000)
   client.headers["Content-Type"] = "application/json"
-  result = proc(verb: HttpMethod, url: string): string =
+  proc(verb: HttpMethod, url: string): string =
     let response = client.request(url, httpMethod = verb)
     debug fmt"Response status: {response.status}"
     if not response.code.is2xx:
@@ -32,10 +32,10 @@ func buildUrl(
       "/" & path
   if query.len > 0:
     uri.query = encodeQuery(query)
-  return $uri
+  $uri
 
 proc get*(self; path: string, query: seq[(string, string)] = @[]): string =
-  return self.send(HttpGet, buildUrl(self.server, path, query))
+  self.send(HttpGet, buildUrl(self.server, path, query))
 
 proc delete*(self; path: string, query: seq[(string, string)] = @[]): string =
-  return self.send(HttpDelete, buildUrl(self.server, path, query))
+  self.send(HttpDelete, buildUrl(self.server, path, query))
