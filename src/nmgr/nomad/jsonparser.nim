@@ -18,7 +18,7 @@ func collectImages(node: JsonNode, images: var seq[string]) =
     return
   case node.kind
   of JObject:
-    let image = node{"image"}.getStr
+    let image = node{"image"}.getStr()
     if image.len > 0:
       images.add(image)
     for _, value in node:

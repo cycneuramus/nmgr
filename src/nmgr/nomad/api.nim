@@ -11,7 +11,6 @@ using self: NomadApi
 
 proc httpTransport*(): Transport =
   let client = newHttpClient(timeout = 5000)
-  client.headers["Content-Type"] = "application/json"
   proc(verb: HttpMethod, url: string): string =
     let response = client.request(url, httpMethod = verb)
     debug fmt"Response status: {response.status}"

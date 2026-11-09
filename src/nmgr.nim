@@ -50,8 +50,7 @@ proc main() =
   if targeted.len == 0:
     raise newException(TargetError, "No jobs targeted")
   if action in singleJobActions and targeted.len > 1:
-    raise
-      newException(NmgrError, fmt "The '{action}' action only supports a single job")
+    raise newException(NmgrError, fmt"The '{action}' action only supports a single job")
 
   action.perform(targeted, nomad)
 

@@ -47,8 +47,9 @@ proc parseConfig*(configPath: Path): Config =
 
   for section in parser.sections:
     if section.startsWith("filter."):
-      let name = section.split(".")[1]
-      let filter = parser[section]
+      let
+        name = section.split(".")[1]
+        filter = parser[section]
       result.filters[name] = Filter(
         name: name,
         pattern: filter.getOrDefault("pattern", ""),

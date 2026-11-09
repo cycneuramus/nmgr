@@ -77,13 +77,13 @@ proc runJob*(self; job: NomadJob) =
     info fmt"Started job: {job.name}"
 
 proc stopJob*(self; jobName: string) =
-  var queryParams: seq[(string, string)] = @[]
-  if self.purge:
-    queryParams.add(("purge", "true"))
-
   if self.dryRun:
     info fmt"[DRY RUN] DELETE /v1/job/{jobName}?purge={self.purge}"
     return
+
+  var queryParams: seq[(string, string)] = @[]
+  if self.purge:
+    queryParams.add(("purge", "true"))
 
   discard self.api.delete("/v1/job/" & jobName, queryParams)
   info fmt"Stopped job: {jobName} (purge={self.purge})"
