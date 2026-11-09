@@ -61,7 +61,7 @@ proc runningJobNames*(self): seq[string] =
   result = self.getJson("/v1/jobs").runningJobNames()
   debug fmt"Running jobs from API: {result}"
 
-proc runJob*(self; job: NomadJob): void =
+proc runJob*(self; job: NomadJob) =
   var cmd = @["nomad", "run"]
   if self.detach and not job.isInfra:
     cmd.add("-detach")
@@ -73,7 +73,7 @@ proc runJob*(self; job: NomadJob): void =
 
   info fmt"Started job: {job.name}"
 
-proc stopJob*(self; jobName: string): void =
+proc stopJob*(self; jobName: string) =
   var queryParams: seq[(string, string)] = @[]
   if self.purge:
     queryParams.add(("purge", "true"))
@@ -85,7 +85,7 @@ proc stopJob*(self; jobName: string): void =
   discard self.api.delete("/v1/job/" & jobName, queryParams)
   info fmt"Stopped job: {jobName} (purge={self.purge})"
 
-proc tailLogs*(self; taskName: string, jobName: string): void =
+proc tailLogs*(self; taskName: string, jobName: string) =
   let
     allocId = self.getAllocId(jobName)
     cmd = @["nomad", "logs", "-f", "-task", taskName, allocId]

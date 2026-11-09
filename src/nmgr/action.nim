@@ -42,7 +42,7 @@ proc selectTask(nomad; job: NomadJob): string =
     except CatchableError:
       echo "Please enter a valid number."
 
-proc up(jobs, nomad): void =
+proc up(jobs, nomad) =
   for job in jobs:
     if job.isRunning:
       debug fmt"Job {job.name} is already running"
@@ -51,7 +51,7 @@ proc up(jobs, nomad): void =
     debug fmt"Bringing job UP: {job.name}"
     nomad.runJob(job)
 
-proc down(jobs, nomad): void =
+proc down(jobs, nomad) =
   for job in jobs:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
@@ -60,7 +60,7 @@ proc down(jobs, nomad): void =
     debug fmt"Bringing job DOWN: {job.name}"
     nomad.stopJob(job.name)
 
-proc image(jobs, nomad): void =
+proc image(jobs, nomad) =
   for job in jobs:
     let live =
       try:
@@ -82,18 +82,18 @@ proc image(jobs, nomad): void =
 
     echo &"Live images:\n{live}\n\nSpec images:\n{spec}{separator}"
 
-proc logs(job: NomadJob, nomad): void =
+proc logs(job: NomadJob, nomad) =
   let task = nomad.selectTask(job)
   nomad.tailLogs(taskName = task, jobName = job.name)
 
-proc exec(job: NomadJob, nomad): void =
+proc exec(job: NomadJob, nomad) =
   let task = nomad.selectTask(job)
   stdout.write fmt"Command to execute in {task}: "
   let subCmd = readLine(stdin)
   discard
     nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.parseCmdLine())
 
-proc shell(job: NomadJob, nomad): void =
+proc shell(job: NomadJob, nomad) =
   let task = nomad.selectTask(job)
   for shell in @["bash", "sh"]:
     debug fmt"Trying shell '{shell}' in {job.name}"
@@ -102,7 +102,7 @@ proc shell(job: NomadJob, nomad): void =
 
   error fmt"No shell found in {job.name} container"
 
-proc reconcile(jobs, nomad): void =
+proc reconcile(jobs, nomad) =
   for job in jobs:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
@@ -126,7 +126,7 @@ proc reconcile(jobs, nomad): void =
     info fmt"Reconciling job {job.name}: image changed. Restarting..."
     nomad.runJob(job)
 
-proc edit(job: NomadJob, nomad): void =
+proc edit(job: NomadJob, nomad) =
   let
     spec = job.specPath
     editor = getEnv("EDITOR")
@@ -139,7 +139,7 @@ proc edit(job: NomadJob, nomad): void =
   let cmd = parseCmdLine(editor) & $spec
   discard runProcess(cmd)
 
-proc perform*(action: Action, jobs; nomad): void =
+proc perform*(action: Action, jobs; nomad) =
   case action
   of acUp:
     up(jobs, nomad)
