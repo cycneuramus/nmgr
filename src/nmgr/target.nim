@@ -1,4 +1,4 @@
-import std/[algorithm, paths, sequtils, strformat, tables]
+import std/[algorithm, dirs, files, paths, sequtils, strformat, strutils, tables]
 import ./[config, errors, jobs, logging]
 
 # An enum here might be tempting to avoid writing the builtins again
@@ -17,7 +17,25 @@ func infra(jobs, config): seq[NomadJob] =
 func services(jobs, config): seq[NomadJob] =
   jobs.filterIt(it.isInfra == false).sortedByIt(it.name)
 
-proc matching*(jobs; filter: Filter, config): seq[NomadJob] =
+proc findConfigs*(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
+  for (kind, path) in walkDir(jobDir):
+    if kind == pcFile:
+      let fileName = $path.extractFilename
+      for pattern in configFilePatterns:
+        if fileName.contains(pattern):
+          result.add(path)
+
+proc matchesFilter*(job: NomadJob, filter: Filter, paths: seq[Path]): bool =
+  ## Checks if any file in paths contains a line matching the pattern
+  for path in paths:
+    if not fileExists(path):
+      continue
+    for line in lines($path):
+      if line.contains(filter.pattern):
+        debug fmt"{job.name}: File '{path.extractFilename}' matches pattern '{filter.pattern}'"
+        return true
+
+proc matching(jobs; filter: Filter, config): seq[NomadJob] =
   for job in jobs:
     if filter.excludeInfra and job.isInfra:
       continue

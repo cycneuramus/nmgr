@@ -1,4 +1,4 @@
-import std/[dirs, files, paths, strformat, strscans, strutils]
+import std/[dirs, paths, strformat, strscans, strutils]
 import ./[config, errors, logging]
 
 const specExts = [".hcl", ".nomad"]
@@ -9,7 +9,7 @@ type NomadJob* = object
   isRunning*: bool
   isInfra*: bool
 
-proc readSpec*(specPath: Path): string =
+proc readSpec(specPath: Path): string =
   try:
     readFile($specPath)
   except CatchableError as e:
@@ -19,25 +19,6 @@ func parseJobName(spec: string): string =
   for line in spec.splitLines():
     if line.strip().scanf("job$s\"$+\"", result):
       return
-
-proc findConfigs*(jobDir: Path, configFilePatterns: seq[string]): seq[Path] =
-  ## Finds configuration files in job directory
-  for (kind, path) in walkDir(jobDir):
-    if kind == pcFile:
-      let fileName = $path.extractFilename
-      for pattern in configFilePatterns:
-        if fileName.contains(pattern):
-          result.add(path)
-
-proc matchesFilter*(job: NomadJob, filter: Filter, paths: seq[Path]): bool =
-  ## Checks if any file in paths contains a line matching the pattern
-  for path in paths:
-    if not fileExists(path):
-      continue
-    for line in lines($path):
-      if line.contains(filter.pattern):
-        debug fmt"{job.name}: File '{path.extractFilename}' matches pattern '{filter.pattern}'"
-        return true
 
 proc definedJobs*(config: Config): seq[NomadJob] =
   ## Finds Nomad jobs by walking subdirectories of base dir
