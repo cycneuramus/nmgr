@@ -88,16 +88,16 @@ proc exec(job: NomadJob, nomad) =
   stdout.write fmt"Command to execute in {task}: "
   let subCmd = readLine(stdin)
   discard
-    nomad.exec(taskName = task, jobName = job.name, subCmd = subCmd.parseCmdLine())
+    nomad.allocExec(taskName = task, jobName = job.name, subCmd = subCmd.parseCmdLine())
 
 proc shell(job: NomadJob, nomad) =
   let task = nomad.selectTask(job)
   for shell in @["bash", "sh"]:
     debug fmt"Trying shell '{shell}' in {job.name}"
-    if nomad.exec(taskName = task, jobName = job.name, subCmd = @[shell]) == 0:
+    # 126/127 = shell not found; return otherwise, i.e. on user exit from shell
+    if nomad.allocExec(task, job.name, @[shell]) notin {126, 127}:
       return
-
-  error fmt"No shell found in {job.name} container"
+  raise newException(NomadError, fmt"No shell found in {job.name} container")
 
 proc reconcile(jobs, nomad) =
   for job in jobs:

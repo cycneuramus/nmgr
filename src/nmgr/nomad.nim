@@ -49,8 +49,7 @@ proc run(self; cmd: seq[string], workingDir = Path("")): int =
     info fmt"[DRY RUN] {cmdStr}"
     return 0
   debug fmt"Executing: {cmdStr}"
-  if self.runCmd(cmd, workingDir) != 0:
-    raise newException(NomadError, fmt"Execution failed: {cmdStr}")
+  self.runCmd(cmd, workingDir)
 
 proc fetchJson(self; path: string): JsonNode =
   self.api.get(path).parseNomadJson()
@@ -84,11 +83,10 @@ proc runJob*(self; job: NomadJob) =
     cmd.add("-detach")
   cmd.add($job.specPath)
 
-  discard self.run(cmd, workingDir = job.specPath.parentDir)
-  if self.dryRun:
-    return
-
-  info fmt"Started job: {job.name}"
+  if self.run(cmd, workingDir = job.specPath.parentDir) != 0:
+    raise newException(NomadError, fmt"'nomad run' failed for {job.name}")
+  if not self.dryRun:
+    info fmt"Started job: {job.name}"
 
 proc stopJob*(self; jobName: string) =
   var queryParams: seq[(string, string)] = @[]
@@ -103,13 +101,9 @@ proc stopJob*(self; jobName: string) =
   info fmt"Stopped job: {jobName} (purge={self.purge})"
 
 proc tailLogs*(self; taskName: string, jobName: string) =
-  let
-    allocId = self.allocId(jobName)
-    cmd = @["nomad", "logs", "-f", "-task", taskName, allocId]
-  discard self.run(cmd)
-
-proc exec*(self; taskName: string, jobName: string, subCmd: seq[string]): int =
   let allocId = self.allocId(jobName)
-  var cmd = @["nomad", "alloc", "exec", "-task", taskName, allocId]
-  cmd.add(subCmd)
-  self.run(cmd)
+  discard self.run(@["nomad", "logs", "-f", "-task", taskName, allocId])
+
+proc allocExec*(self; taskName: string, jobName: string, subCmd: seq[string]): int =
+  let allocId = self.allocId(jobName)
+  self.run(@["nomad", "alloc", "exec", "-task", taskName, allocId] & subCmd)
