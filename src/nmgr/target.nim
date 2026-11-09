@@ -57,6 +57,7 @@ proc select(jobs; target: string, config): seq[NomadJob] =
   of "services":
     jobs.services(config)
   of "all":
+    # NOTE: Be careful of ordering in e.g. "up" and "down" actions
     jobs.infra(config) & jobs.services(config)
   elif target in config.filters:
     debug fmt"Using config filter: {target}"

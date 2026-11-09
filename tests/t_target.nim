@@ -1,90 +1,73 @@
-import std/[paths, tables, unittest]
-import ../src/nmgr/[config, errors, jobs, target]
+import std/[dirs, paths, sequtils, tables, tempfiles, unittest]
+import nmgr/[config, errors, jobs, target]
+import ./helpers
 
-func makeConfig(infraJobs: seq[string] = @[]): Config =
-  Config(
-    baseDir: "/tmp".Path,
-    infraJobs: infraJobs,
-    filters: initTable[string, Filter](),
-    server: "http://localhost:4646",
-  )
+let root = Path(createTempDir("nmgr_target_", ""))
+writeTree(
+  root,
+  {
+    "consul/consul.hcl": "job \"consul\" {}",
+    "traefik/traefik.hcl": "job \"traefik\" {\n  tags = [\"traefik.enable=true\"]\n}",
+    "web/web.hcl": "job \"web\" {\n  tags = [\"traefik.enable=true\"]\n}",
+    "api/api.hcl": "job \"api\" {}",
+    "api/api.env": "TAGS=traefik.enable=true",
+    "db/db.hcl": "job \"db\" {}",
+    "db/notes.txt": "traefik.enable=true", # not a config pattern; must be ignored
+  },
+)
 
-func makeJob(name: string): NomadJob =
-  NomadJob(name: name, specPath: ("/tmp/" & name & "/job.hcl").Path)
+var cfg = Config(
+  baseDir: root,
+  infraJobs: @["traefik", "consul"], # deliberately not alphabetical
+  jobConfigPatterns: @[".env"],
+)
+cfg.filters["proxied"] =
+  Filter(name: "proxied", pattern: "traefik.enable=true", excludeInfra: true)
+cfg.filters["proxied-all"] =
+  Filter(name: "proxied-all", pattern: "traefik.enable=true", extendedSearch: true)
+cfg.filters["empty"] = Filter(name: "empty", pattern: "no-such-string")
 
-let registry = initTargetRegistry()
+let allJobs = definedJobs(cfg)
 
-suite "Target Filters":
-  test "infraFilter returns jobs in config order":
-    let config = makeConfig(@["garage", "valkey", "coredns"])
-    let jobs =
-      @[makeJob("garage"), makeJob("valkey"), makeJob("coredns"), makeJob("app")]
+proc names(targets: seq[string], adHoc = false): seq[string] =
+  targets.resolve(allJobs, cfg, adHoc).mapIt(it.name)
 
-    let result = "infra".filter(jobs, registry, config)
+suite "builtin targets":
+  test "infra keeps config order":
+    check names(@["infra"]) == @["traefik", "consul"]
 
-    check:
-      result.len == 3
-      result[0].name == "garage"
-      result[1].name == "valkey"
-      result[2].name == "coredns"
+  test "services are sorted and exclude infra":
+    check names(@["services"]) == @["api", "db", "web"]
 
-  test "servicesFilter returns non-infra jobs sorted alphabetically":
-    let config = makeConfig(@["garage"])
-    let jobs = @[makeJob("zebra"), makeJob("alpha"), makeJob("garage"), makeJob("beta")]
+  test "all is infra first, then services":
+    check names(@["all"]) == @["traefik", "consul", "api", "db", "web"]
 
-    let result = "services".filter(jobs, registry, config)
+suite "names and dedup":
+  test "job by name":
+    check names(@["db"]) == @["db"]
 
-    check:
-      result.len == 3
-      result[0].name == "alpha"
-      result[1].name == "beta"
-      result[2].name == "zebra"
+  test "overlapping targets are deduplicated, first occurrence wins":
+    check names(@["web", "all", "web"]) == @["web", "traefik", "consul", "api", "db"]
 
-  test "allFilter combines infra and services":
-    let config = makeConfig(@["garage"])
-    let jobs = @[makeJob("app"), makeJob("garage")]
-
-    let result = "all".filter(jobs, registry, config)
-
-    check:
-      result.len == 2
-      result[0].name == "garage" # Infra first
-      result[1].name == "app" # Then services
-
-  test "nameFilter returns exact match":
-    let config = makeConfig()
-    let jobs = @[makeJob("app-v1"), makeJob("app"), makeJob("api")]
-
-    let result = "app".filter(jobs, registry, config)
-
-    check:
-      result.len == 1
-      result[0].name == "app"
-
-  test "filter raises TargetError for no matches":
-    let config = makeConfig()
-    let jobs = @[makeJob("app")]
-
+  test "unknown target raises TargetError":
     expect TargetError:
-      discard "nonexistent".filter(jobs, registry, config)
+      discard names(@["nope"])
 
-  test "servicesFilter returns empty for all-infra jobs":
-    let config = makeConfig(@["garage", "valkey"])
-    let jobs = @[makeJob("garage"), makeJob("valkey")]
+suite "filters":
+  test "spec-only search honours excludeInfra":
+    check names(@["proxied"]) == @["web"]
 
+  test "extended search includes matching config files only":
+    check names(@["proxied-all"]) == @["api", "traefik", "web"]
+
+  test "filter with no matches raises TargetError":
     expect TargetError:
-      discard "services".filter(jobs, registry, config)
+      discard names(@["empty"])
 
-  test "infraFilter returns empty for no infra jobs":
-    let config = makeConfig(@["garage"])
-    let jobs = @[makeJob("app")]
+  test "ad hoc search matches spec contents":
+    check names(@["traefik.enable"], adHoc = true) == @["traefik", "web"]
 
-    expect TargetError:
-      discard "infra".filter(jobs, registry, config)
+  test "ad hoc search with no matches is not an error":
+    check names(@["zzz"], adHoc = true).len == 0
 
-  test "allFilter handles empty job list":
-    let config = makeConfig()
-    let jobs: seq[NomadJob] = @[]
-
-    expect TargetError:
-      discard "all".filter(jobs, registry, config)
+removeDir(root)

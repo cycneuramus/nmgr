@@ -1,251 +1,69 @@
-import std/[json, unittest]
-import ../src/nmgr/[errors, nomad/jsonparser]
+import std/[algorithm, json, unittest]
+import nmgr/errors
+import nmgr/nomad/jsonparser
 
-suite "JSON Parser":
-  test "parseResponse returns valid JsonNode from JSON string":
-    let
-      jsonStr = """{"key": "value", "number": 42}"""
-      result = parseResponse(jsonStr)
+suite "parseNomadJson":
+  test "parses valid JSON":
+    check parseNomadJson("""{"ID": "x"}""")["ID"].getStr == "x"
 
-    check:
-      result.kind == JObject
-      result.hasKey("key")
-      result["key"].getStr == "value"
-      result["number"].getInt == 42
+  test "wraps parse failures in NomadError":
+    for body in ["", "not json", """{"unterminated": """]:
+      expect NomadError:
+        discard parseNomadJson(body)
 
-  test "parseResponse raises NomadError for invalid JSON":
-    let jsonStr = """{invalid json"""
-    expect NomadError:
-      discard parseResponse(jsonStr)
-
-  test "parseImages extracts images from task config":
-    let
-      json = parseJson(
-        """
-          {
-            "TaskGroups": [
-              {
-                "Tasks": [
-                  {
-                    "Name": "web",
-                    "Config": {
-                      "image": "nginx:latest"
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        """
-      )
-      result = parseImages(json)
-
-    check:
-      result.len == 1
-      result[0] == "nginx:latest"
-
-  test "parseImages extracts multiple images from task config":
-    let
-      json = parseJson(
-        """
-          {
-            "TaskGroups": [
-              {
-                "Tasks": [
-                  {
-                    "Name": "web",
-                    "Config": {
-                      "image": "nginx:latest"
-                    }
-                  },
-                  {
-                    "Name": "db",
-                    "Config": {
-                      "image": "postgres:15"
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        """
-      )
-      result = parseImages(json)
-
-    check:
-      result.len == 2
-      result[0] == "nginx:latest"
-      result[1] == "postgres:15"
-
-  test "parseImages filters out local images":
-    let
-      json = parseJson(
-        """
-          {
-            "TaskGroups": [
-              {
-                "Tasks": [
-                  {
-                    "Name": "web",
-                    "Config": {
-                      "image": "local.web"
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        """
-      )
-      result = parseImages(json)
-
-    check result.len == 0
-
-  test "parseImages returns empty for missing TaskGroups":
-    let
-      json = parseJson("""{"key": "value"}""")
-      result = parseImages(json)
-
-    check result.len == 0
-
-  test "parseImages returns empty for non-object taskGroup":
-    let
-      json = parseJson("""{"TaskGroups": ["not an object"]}""")
-      result = parseImages(json)
-
-    check result.len == 0
-
-  test "parseImages extracts images from nested config":
-    let
-      json = parseJson(
-        """
+suite "job inspection":
+  let job =
+    %*{
+      "TaskGroups": [
+        {
+          "Tasks": [
+            {"Name": "app", "Config": {"image": "nginx:1.25"}},
+            {"Name": "sidecar", "Config": {"image": "nginx:1.25"}},
+          ]
+        },
+        {
+          "Tasks": [
             {
-              "TaskGroups": [
-                {
-                  "Tasks": [
-                    {
-                      "Name": "web",
-                      "Config": {
-                        "image": "nginx:latest",
-                        "volumes": [
-                          {
-                            "image": "local.volume"
-                          }
-                        ]
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-        """
-      )
-      result = parseImages(json)
-
-    check:
-      result.len == 1
-      result[0] == "nginx:latest"
-
-  test "parseTasks extracts task names from TaskGroups":
-    let
-      json = parseJson(
-        """
-          {
-            "TaskGroups": [
-              {
-                "Tasks": [
-                  {"Name": "web"},
-                  {"Name": "db"}
-                ]
-              }
-            ]
-          }
-        """
-      )
-      result = parseTasks(json)
-
-    check:
-      result.len == 2
-      result[0] == "web"
-      result[1] == "db"
-
-  test "parseTasks returns empty for missing TaskGroups":
-    let json = parseJson("""{}""")
-    let result = parseTasks(json)
-
-    check result.len == 0
-
-  test "parseTasks returns empty for taskGroup without Tasks":
-    let json = parseJson("""{"TaskGroups": [{}]}""")
-    let result = parseTasks(json)
-
-    check result.len == 0
-
-  test "parseJobs extracts running job names from array":
-    let
-      json = parseJson(
-        """
-            [
-              {"Name": "job1", "Status": "running"},
-              {"Name": "job2", "Status": "pending"},
-              {"Name": "job3", "Status": "running"}
-            ]
-          """
-      )
-      result = parseJobs(json)
-
-    check:
-      result.len == 2
-      result[0] == "job1"
-      result[1] == "job3"
-
-  test "parseJobs returns empty for non-array JSON":
-    let
-      json = parseJson("""{"Name": "job1", "Status": "running"}""")
-      result = parseJobs(json)
-
-    check result.len == 0
-
-  test "parseJobs filters out non-running jobs":
-    let
-      json = parseJson(
-        """
-          [
-            {"Name": "job1", "Status": "stopped"},
-            {"Name": "job2", "Status": "dead"}
+              "Name": "db",
+              "Config": {"image": "postgres:16", "extra": [{"image": "busybox"}]},
+            },
+            {"Name": "raw"},
+            {"Name": "", "Config": {"command": "/bin/true"}},
           ]
-        """
-      )
-      result = parseJobs(json)
+        },
+      ]
+    }
 
-    check result.len == 0
+  test "images: collects nested image keys across groups, deduplicated":
+    check job.images.sorted == @["busybox", "nginx:1.25", "postgres:16"]
 
-  test "parseJobs handles case-insensitive status":
-    let
-      json = parseJson(
-        """
-          [
-            {"Name": "job1", "Status": "RUNNING"},
-            {"Name": "job2", "Status": "Running"}
-          ]
-        """
-      )
-      result = parseJobs(json)
+  test "images/taskNames: tolerate jobs without task groups":
+    check newJObject().images.len == 0
+    check newJObject().taskNames.len == 0
 
-    check result.len == 2
+  test "taskNames: keeps order, skips unnamed tasks":
+    check job.taskNames == @["app", "sidecar", "db", "raw"]
 
-  test "parseJobs skips entries without Name":
-    let
-      json = parseJson(
-        """
-          [
-            {"Status": "running"},
-            {"Name": "job1", "Status": "running"}
-          ]
-        """
-      )
-      result = parseJobs(json)
+suite "allocations and job lists":
+  test "runningAllocId returns first running allocation":
+    let allocs =
+      %*[
+        {"ID": "old", "ClientStatus": "complete"},
+        {"ID": "cur", "ClientStatus": "running"},
+        {"ID": "new", "ClientStatus": "running"},
+      ]
+    check allocs.runningAllocId == "cur"
 
-    check:
-      result.len == 1
-      result[0] == "job1"
+  test "runningAllocId is empty when nothing runs":
+    check (%*[{"ID": "old", "ClientStatus": "failed"}]).runningAllocId == ""
+    check newJArray().runningAllocId == ""
+
+  test "runningJobNames filters by status":
+    let jobs =
+      %*[
+        {"Name": "web", "Status": "running"},
+        {"Name": "db", "Status": "dead"},
+        {"Name": "api", "Status": "pending"},
+        {"Name": "", "Status": "running"},
+      ]
+    check jobs.runningJobNames == @["web"]

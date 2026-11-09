@@ -1,4 +1,4 @@
-import std/[os, paths, strformat, strutils]
+import std/[algorithm, os, paths, strformat, strutils]
 import ./[errors, jobs, logging, nomad]
 
 type Action* = enum
@@ -51,7 +51,8 @@ proc up(jobs, nomad) =
     nomad.runJob(job)
 
 proc down(jobs, nomad) =
-  for job in jobs:
+  # NOTE: Target selection orders infra jobs first, whence reversed
+  for job in jobs.reversed:
     if not job.isRunning:
       debug fmt"Job {job.name} is not running; skipping"
       continue
@@ -120,7 +121,7 @@ proc edit(job: NomadJob) =
     editor = getEnv("EDITOR")
 
   if editor.len == 0:
-    raise newException(NmgrError, "'$EDITOR environment variable not set")
+    raise newException(NmgrError, "$EDITOR environment variable not set")
 
   let cmd = parseCmdLine(editor) & $spec
   discard runProcess(cmd)

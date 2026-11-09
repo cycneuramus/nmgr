@@ -1,110 +1,93 @@
-import std/[paths, tables, unittest]
-import ../src/nmgr/[action, config, errors, jobs, nomad, registry]
+import std/[envvars, httpclient, sequtils, tables, unittest]
+import nmgr/[action, errors]
+import ./helpers
 
-const actions =
-  @["up", "down", "find", "list", "image", "logs", "exec", "shell", "reconcile", "edit"]
-
-func makeConfig(): Config =
-  Config(
-    baseDir: "/tmp".Path,
-    infraJobs: @[],
-    filters: initTable[string, Filter](),
-    server: "http://localhost:4646",
-  )
-
-func makeJob(name: string): NomadJob =
-  NomadJob(name: name, specPath: ("/tmp/" & name & "/job.hcl").Path)
-
-suite "Action Handler":
-  test "initActionRegistry creates registry with all actions":
-    let registry = initActionRegistry()
-
-    check registry.len == actions.len
-    for a in actions:
-      check registry.hasKey(a)
-
-  test "handle raises ActionError on handler errors":
-    let
-      jobs = @[makeJob("app")]
-      config = makeConfig()
-      nomadClient = NomadClient(config: config)
-
-    expect ActionError:
-      handle(
-        Action(
-          handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
-            raise newException(KeyError, "error message")
-        ),
-        jobs,
-        nomadClient,
-      )
-
-  test "handle calls handler for known action":
-    var
-      handlerCalled = false
-      receivedJobs: seq[NomadJob] = @[]
-      registry = initActionRegistry()
-
-    registry.add(
-      "testAction",
-      Action(
-        handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
-          handlerCalled = true
-          receivedJobs = jobs
-      ),
+suite "up":
+  test "starts only jobs that are not running, in order":
+    let f = newFake()
+    acUp.perform(
+      @[
+        mkJob("traefik", running = false, infra = true),
+        mkJob("web"),
+        mkJob("api", running = false),
+      ],
+      f.client,
     )
+    check f.commands.mapIt(it[0][^1]) ==
+      @["/jobs/traefik/traefik.hcl", "/jobs/api/api.hcl"]
 
-    let
-      jobs = @[makeJob("app"), makeJob("db")]
-      config = makeConfig()
-      nomadClient = NomadClient(config: config)
-
-    handle(registry["testAction"], jobs, nomadClient)
-
-    check:
-      handlerCalled == true
-      receivedJobs.len == 2
-      receivedJobs[0].name == "app"
-      receivedJobs[1].name == "db"
-
-  test "handle passes config to handler":
-    var receivedInfraJobs: seq[string] = @[]
-
-    var registry = initActionRegistry()
-    registry.add(
-      "testAction",
-      Action(
-        handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
-          receivedInfraJobs = nomad.config.infraJobs
-      ),
+suite "down":
+  test "stops running jobs in reverse order (infra last)":
+    let f = newFake()
+    acDown.perform(
+      @[
+        mkJob("traefik", infra = true),
+        mkJob("api"),
+        mkJob("web", running = false),
+        mkJob("zeta"),
+      ],
+      f.client,
     )
+    check f.requests ==
+      @[
+        (HttpDelete, testServer & "/v1/job/zeta"),
+        (HttpDelete, testServer & "/v1/job/api"),
+        (HttpDelete, testServer & "/v1/job/traefik"),
+      ]
 
-    let jobs = @[makeJob("app")]
-    var config = makeConfig()
-    config.infraJobs = @["infra"]
-    let nomadClient = NomadClient(config: config)
+suite "reconcile":
+  test "restarts only running services whose images changed":
+    let f = newFake()
+    for (name, live, spec) in [
+      ("same", "nginx:1", "nginx:1"),
+      ("changed", "nginx:1", "nginx:2"),
+      ("infra", "traefik:2", "traefik:3"),
+      ("stopped", "x:1", "x:2"),
+    ]:
+      f.responses["/v1/job/" & name] = jobJson({"t": live})
+      f.specOutput["/jobs/" & name & "/" & name & ".hcl"] = specJson({"t": spec})
 
-    handle(registry["testAction"], jobs, nomadClient)
-
-    check receivedInfraJobs == @["infra"]
-
-  test "handle passes nomad client to handler":
-    var receivedDryRun = false
-
-    var registry = initActionRegistry()
-    registry.add(
-      "testAction",
-      Action(
-        handler: proc(jobs: seq[NomadJob], nomad: NomadClient) =
-          receivedDryRun = nomad.dryRun
-      ),
+    acReconcile.perform(
+      @[
+        mkJob("same"),
+        mkJob("changed"),
+        mkJob("infra", infra = true),
+        mkJob("stopped", running = false),
+      ],
+      f.client,
     )
+    check f.commands.mapIt(it[0]) == @[@["nomad", "run", "/jobs/changed/changed.hcl"]]
 
-    let
-      jobs = @[makeJob("app")]
-      config = makeConfig()
-      nomadClient = NomadClient(config: config, dryRun: true)
+suite "shell":
+  proc shellFake(exitCodes: seq[int]): FakeNomad =
+    result = newFake()
+    result.responses["/v1/job/web"] = jobJson({"app": "nginx"}) # single task: no prompt
+    result.responses["/v1/job/web/allocations"] = allocsJson("a1")
+    result.exitCodes = exitCodes
 
-    handle(registry["testAction"], jobs, nomadClient)
+  test "uses bash when available":
+    let f = shellFake(@[0])
+    acShell.perform(@[mkJob("web")], f.client)
+    check f.commands.mapIt(it[0][^1]) == @["bash"]
 
-    check receivedDryRun == true
+  test "a non-zero user exit is not treated as a missing shell":
+    let f = shellFake(@[1])
+    acShell.perform(@[mkJob("web")], f.client)
+    check f.commands.len == 1
+
+  test "falls back to sh":
+    let f = shellFake(@[127, 0])
+    acShell.perform(@[mkJob("web")], f.client)
+    check f.commands.mapIt(it[0][^1]) == @["bash", "sh"]
+    check f.commands[1][0] == @["nomad", "alloc", "exec", "-task", "app", "a1", "sh"]
+
+  test "raises when no shell exists":
+    let f = shellFake(@[127, 126])
+    expect NomadError:
+      acShell.perform(@[mkJob("web")], f.client)
+
+suite "edit":
+  test "requires $EDITOR":
+    delEnv("EDITOR")
+    expect NmgrError:
+      acEdit.perform(@[mkJob("web")], newFake().client)

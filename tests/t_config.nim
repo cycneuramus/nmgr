@@ -1,158 +1,63 @@
-import std/[os, strutils, tables, unittest]
-import ../src/nmgr/config
+import std/[appdirs, dirs, paths, tables, tempfiles, unittest]
+import nmgr/[config, errors]
 
-proc writeTempConfig(content: string): string =
-  let tempFile = getTempDir() / "nmgr_test_config_" & $getCurrentProcessId() & ".conf"
-  writeFile(tempFile, content)
-  return tempFile
+let dir = Path(createTempDir("nmgr_config_", ""))
 
-proc cleanup(path: string) =
-  if fileExists(path):
-    removeFile(path)
+proc configFrom(content: string): Config =
+  let path = dir / Path("config")
+  writeFile($path, content)
+  parseConfig(path)
 
-suite "Config Parser":
-  test "parse returns defaults for empty config":
-    let configPath = writeTempConfig("")
-    defer:
-      cleanup(configPath)
-
-    let config = parse(configPath)
-
-    check:
-      config.baseDir.string == ""
-      config.infraJobs.len == 0
-      config.jobConfigPatterns.len == 0
-      config.ignoreDirs.len == 0
-      config.filters.len == 0
-      config.server == "http://127.0.0.1:4646" # default
-
-  test "parse reads general section":
-    let configPath = writeTempConfig(
+suite "parseConfig":
+  test "reads general settings and filters":
+    let cfg = configFrom(
       """
-      [general]
-      base_dir = "/opt/nomad"
-      infra_jobs = "garage valkey coredns"
-      job_config_patterns = ".env .conf"
-      ignore_dirs = ".git tmp"
-      nomad_url = "http://nomad.local:4646"
-      """.dedent()
+[general]
+base_dir = "~/nomad"
+ignore_dirs = "archive  tmp"
+infra_jobs = "traefik consul"
+job_config_patterns = ".env config."
+nomad_url = "http://nomad.lan:4646"
+
+[filter.web]
+pattern = "traefik.enable=true"
+extended_search = true
+exclude_infra = true
+
+[filter.db]
+pattern = "postgres"
+"""
     )
-    defer:
-      cleanup(configPath)
+    check cfg.baseDir == getHomeDir() / Path("nomad")
+    check cfg.ignoreDirs == @[Path("archive"), Path("tmp")]
+    check cfg.infraJobs == @["traefik", "consul"]
+    check cfg.jobConfigPatterns == @[".env", "config."]
+    check cfg.server == "http://nomad.lan:4646"
+    check cfg.filters.len == 2
+    check cfg.filters["web"] ==
+      Filter(
+        name: "web",
+        pattern: "traefik.enable=true",
+        extendedSearch: true,
+        excludeInfra: true,
+      )
+    check cfg.filters["db"] == Filter(name: "db", pattern: "postgres")
 
-    let config = parse(configPath)
+  test "applies defaults for missing keys":
+    let cfg = configFrom("[general]\nbase_dir = \"/srv/jobs\"\n")
+    check cfg.baseDir == Path("/srv/jobs")
+    check cfg.server == "http://127.0.0.1:4646"
+    check cfg.ignoreDirs.len == 0
+    check cfg.infraJobs.len == 0
+    check cfg.filters.len == 0
 
-    check:
-      config.baseDir.string == "/opt/nomad"
-      config.infraJobs == @["garage", "valkey", "coredns"]
-      config.jobConfigPatterns == @[".env", ".conf"]
-      config.ignoreDirs.len == 2
-      config.ignoreDirs[0].string == ".git"
-      config.ignoreDirs[1].string == "tmp"
-      config.server == "http://nomad.local:4646"
+  test "default config parses":
+    const shipped = staticRead("../data/config")
+    let cfg = configFrom(shipped)
+    check cfg.server.len > 0
 
-  test "parse expands tilde in base_dir":
-    let configPath = writeTempConfig(
-      """
-      [general]
-      base_dir = "~/nomad/jobs"
-      """.dedent()
-    )
-    defer:
-      cleanup(configPath)
+  test "missing file raises ConfigError":
+    expect ConfigError:
+      discard parseConfig(dir / Path("does-not-exist"))
 
-    let config = parse(configPath)
-
-    check:
-      config.baseDir.string != ""
-      not config.baseDir.string.contains("~")
-
-  test "parse handles single-value lists":
-    let configPath = writeTempConfig(
-      """
-      [general]
-      infra_jobs = "garage"
-      job_config_patterns = ".env"
-      """.dedent()
-    )
-    defer:
-      cleanup(configPath)
-
-    let config = parse(configPath)
-
-    check:
-      config.infraJobs == @["garage"]
-      config.jobConfigPatterns == @[".env"]
-
-  test "parse handles empty list values":
-    let configPath = writeTempConfig(
-      """
-      [general]
-      infra_jobs =
-      """.dedent()
-    )
-    defer:
-      cleanup(configPath)
-
-    let config = parse(configPath)
-
-    check config.infraJobs.len == 0
-
-  test "parse reads filter sections":
-    let configPath = writeTempConfig(
-      """
-      [general]
-      base_dir = "/tmp"
-
-      [filter.nas]
-      pattern = "/mnt/nas"
-
-      [filter.db]
-      pattern = "15432"
-      extended_search = true
-      exclude_infra = false
-      """.dedent()
-    )
-    defer:
-      cleanup(configPath)
-
-    let config = parse(configPath)
-
-    check:
-      config.filters.len == 2
-      config.filters.hasKey("nas")
-      config.filters.hasKey("db")
-
-    let nasFilter = config.filters["nas"]
-    check:
-      nasFilter.name == "nas"
-      nasFilter.pattern == "/mnt/nas"
-      nasFilter.extendedSearch == false
-      nasFilter.excludeInfra == false
-
-    let dbFilter = config.filters["db"]
-    check:
-      dbFilter.name == "db"
-      dbFilter.pattern == "15432"
-      dbFilter.extendedSearch == true
-      dbFilter.excludeInfra == false
-
-  test "parse ignores non-filter sections":
-    let configPath = writeTempConfig(
-      """
-      [general]
-      base_dir = "/tmp"
-
-      [random_section]
-      key = "value"
-
-      [another.section]
-      foo = "bar"
-      """.dedent()
-    )
-    defer:
-      cleanup(configPath)
-
-    let config = parse(configPath)
-
-    check config.filters.len == 0
+removeDir(dir)

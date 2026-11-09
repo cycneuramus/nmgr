@@ -1,60 +1,50 @@
-import std/[unittest]
-import ../src/nmgr/nomad/cli
+import std/[options, unittest]
+import nmgr/cli
+import pkg/argparse
 
-suite "Nomad CLI":
-  test "run with dryRun does not execute command":
-    var
-      cli = NomadCli()
-      executed = false
+var parser = buildParser()
 
-    cli.caller = proc(cmd: seq[string], workingDir: string): string =
-      executed = true
-      return ""
+suite "argument parsing":
+  test "flags, action and targets":
+    let opts = parser.parse(@["-n", "--purge", "down", "web", "db"])
+    check opts.dry_run
+    check opts.purge
+    check not opts.detach
+    check opts.action == "down"
+    check opts.targets == @["web", "db"]
+    check opts.config_opt.isNone
 
-    discard cli.run(@["nomad", "run", "job.hcl"], dryRun = true)
+  test "config option":
+    let opts = parser.parse(@["-c", "/tmp/cfg", "list"])
+    check opts.config_opt.get == "/tmp/cfg"
+    check opts.targets.len == 0
 
-    check executed == false
+suite "listOpts":
+  test "extracts and sorts options from help text":
+    const help =
+      """
+nmgr
 
-  test "run with custom caller executes command":
-    var
-      cli = NomadCli()
-      executed = false
-      capturedCmd: seq[string] = @[]
+Usage:
+  nmgr [options] action [targets ...]
 
-    cli.caller = proc(cmd: seq[string], workingDir: string): string =
-      executed = true
-      capturedCmd = cmd
-      return ""
+Options:
+  -h, --help
+  -n, --dry-run              Simulate execution
+  -c, --config=CONFIG        Path to config file (default: ~/.config/nmgr/config)
+"""
+    check listOpts(help) == @["--config", "--dry-run", "--help", "-c", "-h", "-n"]
 
-    discard cli.run(@["nomad", "run", "job.hcl"], dryRun = false)
-
-    check:
-      executed == true
-      capturedCmd == @["nomad", "run", "job.hcl"]
-
-  test "run passes workingDir to caller":
-    var
-      cli = NomadCli()
-      capturedWorkingDir = ""
-
-    cli.caller = proc(cmd: seq[string], workingDir: string): string =
-      capturedWorkingDir = workingDir
-      return ""
-
-    discard
-      cli.run(@["nomad", "run", "job.hcl"], dryRun = false, workingDir = "/tmp/jobs")
-
-    check capturedWorkingDir == "/tmp/jobs"
-
-  test "run with empty workingDir passes empty string":
-    var
-      cli = NomadCli()
-      capturedWorkingDir = ""
-
-    cli.caller = proc(cmd: seq[string], workingDir: string): string =
-      capturedWorkingDir = workingDir
-      return ""
-
-    discard cli.run(@["nomad", "run", "job.hcl"], dryRun = false)
-
-    check capturedWorkingDir == ""
+  test "--list-options works against the real parser's help":
+    try:
+      discard parser.parse(@["--list-options"])
+      fail()
+    except ShortCircuit as e:
+      check e.flag == "list_options"
+      let opts = listOpts(e.help)
+      for o in [
+        "-h", "--help", "-n", "--dry-run", "-c", "--config", "--version", "--completion"
+      ]:
+        check o in opts
+      check "--config=CONFIG" notin opts
+      check "--list-actions" notin opts # hidden flags stay hidden
