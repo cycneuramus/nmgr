@@ -1,24 +1,9 @@
-import
-  std/[
-    algorithm, appdirs, dirs, files, parsecfg, paths, streams, strformat, strutils,
-    tables,
-  ]
+import std/[algorithm, parsecfg, streams, strutils, tables]
 import ./[action, completion, config, nomad, target]
 import pkg/argparse
 
-const
-  version = staticRead("../../nmgr.nimble").newStringStream.loadConfig.getSectionValue(
-      "", "version"
-    )
-  defaultConfig = staticRead("../../data/config")
-
-let defaultConfigPath* = appdirs.getConfigDir() / Path("nmgr/config")
-
-proc ensureDefaultConfig*() =
-  if not fileExists(defaultConfigPath):
-    createDir(defaultConfigPath.parentDir)
-    writeFile($defaultConfigPath, defaultConfig)
-    echo fmt"Generated default config at {defaultConfigPath}"
+const version = staticRead("../../nmgr.nimble").newStringStream.loadConfig
+  .getSectionValue("", "version")
 
 # HACK: parse help text for --list-options
 func listOpts*(help: string): seq[string] =
@@ -97,4 +82,3 @@ proc handleShortCircuit*(e: ref ShortCircuit) =
       echo job
   else:
     raise e
-  quit(0)

@@ -1,5 +1,5 @@
 import std/[os, paths, strformat]
-import ./nmgr/[action, args, config, errors, jobs, logging, nomad, target]
+import ./nmgr/[action, cli, config, errors, jobs, logging, nomad, target]
 import pkg/argparse
 
 proc main() =
@@ -17,7 +17,7 @@ proc main() =
   if args.verbose:
     setLogFilter(lvlDebug)
 
-  if args.config.len == 0:
+  if not args.config_opt.isSome:
     ensureDefaultConfig()
 
   let

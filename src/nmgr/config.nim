@@ -1,4 +1,6 @@
-import std/[parsecfg, paths, sequtils, strformat, strutils, tables, with]
+import
+  std/
+    [appdirs, dirs, parsecfg, files, paths, sequtils, strformat, strutils, tables, with]
 import ./[errors, logging]
 
 type
@@ -15,6 +17,15 @@ type
     jobConfigPatterns*: seq[string]
     filters*: Table[string, Filter]
     server*: string
+
+const defaultConfig = staticRead("../../data/config")
+let defaultConfigPath* = appdirs.getConfigDir() / Path("nmgr/config")
+
+proc ensureDefaultConfig*() =
+  if not fileExists(defaultConfigPath):
+    createDir(defaultConfigPath.parentDir)
+    writeFile($defaultConfigPath, defaultConfig)
+    echo fmt"Generated default config at {defaultConfigPath}"
 
 proc parseConfig*(configPath: Path): Config =
   debug fmt"Loading config from: {configPath}"
