@@ -1,10 +1,8 @@
-import std/[dirs, files, os, paths, strformat, strutils]
+import std/[appdirs, dirs, files, paths, strformat, strutils]
 
 proc genCompletion*() =
   const completionScript = staticRead("../../data/completion.bash")
-  let
-    dataDir = getEnv("XDG_DATA_HOME", getHomeDir() / ".local" / "share")
-    scriptPath = Path(dataDir / "bash-completion" / "completions" / "nmgr")
+  let scriptPath = getDataDir() / Path("bash-completion/completions/nmgr")
 
   createDir(scriptPath.parentDir)
 

@@ -13,7 +13,7 @@ proc readSpec*(specPath: Path): string =
   try:
     readFile($specPath)
   except CatchableError as e:
-    raise newException(JobError, fmt"Unable to read spec file {$specPath}: {e.msg}")
+    raise newException(JobError, fmt"Unable to read spec file {specPath}: {e.msg}")
 
 func parseJobName(spec: string): string =
   for line in spec.splitLines():
@@ -36,13 +36,13 @@ proc matchesFilter*(job: NomadJob, filter: Filter, paths: seq[Path]): bool =
       continue
     for line in lines($path):
       if line.contains(filter.pattern):
-        debug fmt"{job.name}: File '{$splitPath(path).tail}' matches pattern '{filter.pattern}'"
+        debug fmt"{job.name}: File '{path.extractFilename}' matches pattern '{filter.pattern}'"
         return true
 
 proc getDefinedJobs*(config: Config): seq[NomadJob] =
   ## Finds Nomad jobs by walking subdirectories of base dir
   if not dirExists(config.baseDir):
-    raise newException(JobError, fmt"Base directory not found: {config.baseDir.string}")
+    raise newException(JobError, fmt"Base directory not found: {config.baseDir}")
 
   for (kind, path) in walkDir(config.baseDir):
     if kind != pcDir or path.extractFilename in config.ignoreDirs:

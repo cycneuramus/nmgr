@@ -16,11 +16,11 @@ type
     filters*: Table[string, Filter]
     server*: string
 
-proc parseConfig*(configPath: string): Config =
+proc parseConfig*(configPath: Path): Config =
   debug fmt"Loading config from: {configPath}"
   let parser =
     try:
-      loadConfig(configPath)
+      loadConfig($configPath)
     except IOError as e:
       raise newException(ConfigError, fmt"Error parsing config: {e.msg}")
 

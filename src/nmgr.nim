@@ -1,4 +1,4 @@
-import std/[os, strformat]
+import std/[os, paths, strformat]
 import ./nmgr/[action, args, config, errors, jobs, logging, nomad, target]
 import pkg/argparse
 
@@ -17,10 +17,11 @@ proc main() =
   if args.verbose:
     setLogFilter(lvlDebug)
 
-  ensureDefaultConfig()
+  if args.config.len == 0:
+    ensureDefaultConfig()
 
   let
-    config = parseConfig(args.config_opt.get(otherwise = defaultConfigPath))
+    config = parseConfig(args.config_opt.get($defaultConfigPath).Path)
     action =
       try:
         parseEnum[Action](args.action)

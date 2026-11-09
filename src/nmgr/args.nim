@@ -1,4 +1,8 @@
-import std/[algorithm, os, parsecfg, streams, strformat, strutils, tables]
+import
+  std/[
+    algorithm, appdirs, dirs, files, parsecfg, paths, streams, strformat, strutils,
+    tables,
+  ]
 import ./[action, completion, config, nomad, target]
 import pkg/argparse
 
@@ -8,8 +12,7 @@ const
     )
   defaultConfig = staticRead("../../data/config")
 
-let defaultConfigPath* =
-  getEnv("XDG_CONFIG_HOME", getHomeDir() / ".config") / "nmgr" / "config"
+let defaultConfigPath* = appdirs.getConfigDir() / Path("nmgr/config")
 
 proc ensureDefaultConfig*() =
   if not fileExists(defaultConfigPath):
