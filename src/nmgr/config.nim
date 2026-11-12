@@ -1,6 +1,6 @@
 import
   std/
-    [appdirs, dirs, parsecfg, files, paths, sequtils, strformat, strutils, tables, with]
+    [appdirs, dirs, files, parsecfg, paths, sequtils, strformat, strutils, tables, with]
 import ./[errors, logging]
 
 type
