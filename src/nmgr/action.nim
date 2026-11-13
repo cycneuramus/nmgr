@@ -45,7 +45,8 @@ proc up(jobs, nomad) =
   for job in jobs:
     if job.isRunning:
       debug fmt"Job {job.name} is already running"
-      continue
+      # No continue here since job spec or configs might have changed,
+      # hence we leave it up to Nomad
 
     debug fmt"Bringing job UP: {job.name}"
     nomad.runJob(job)
