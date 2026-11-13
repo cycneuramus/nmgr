@@ -3,7 +3,7 @@ import nmgr/[action, errors]
 import ./helpers
 
 suite "up":
-  test "starts only jobs that are not running, in order":
+  test "starts jobs in order":
     let f = newFake()
     acUp.perform(
       @[
@@ -14,7 +14,7 @@ suite "up":
       f.client,
     )
     check f.commands.mapIt(it[0][^1]) ==
-      @["/jobs/traefik/traefik.hcl", "/jobs/api/api.hcl"]
+      @["/jobs/traefik/traefik.hcl", "/jobs/web/web.hcl", "/jobs/api/api.hcl"]
 
 suite "down":
   test "stops running jobs in reverse order (infra last)":
