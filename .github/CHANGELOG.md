@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.7](https://github.com/cycneuramus/nmgr/compare/v1.2.6...v1.2.7) (2026-11-13)
+
+
+### Bug Fixes
+
+* Don't skip running jobs in up action ([c146258](https://github.com/cycneuramus/nmgr/commit/c146258564372cd2e9832f1ff387343ab9433a71))
+
 ## [1.2.6](https://github.com/cycneuramus/nmgr/compare/v1.2.5...v1.2.6) (2026-11-09)
 
 
